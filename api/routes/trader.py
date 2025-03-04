@@ -1,6 +1,8 @@
 from fastapi import APIRouter, HTTPException
 from ..database import get_database
 from bson import ObjectId
+from pydantic import BaseModel
+from ..models.brokerage import Brokerage
 
 router = APIRouter()
 
@@ -36,21 +38,21 @@ async def get_analysts():
         print(f"Error fetching analysts: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to fetch analysts")
 
-# Optional: Add a GET endpoint for a single trader
-@router.get("/{trader_id}")
-async def get_trader(trader_id: str):
+class UpdateBrokerage(BaseModel):
+    traderId: str
+    brokerageName : str
+    
+
+@router.post("/updateBrokerage")
+async def update_brokerage(brokerage: UpdateBrokerage):
     try:
         trader_collection = await get_database("traders")
-        trader = await trader_collection.find_one({"_id": ObjectId(trader_id)})
-        
-        if trader:
-            # Convert ObjectId to string for JSON serialization
-            trader["_id"] = str(trader["_id"])
-            if "user_id" in trader:
-                trader["user_id"] = str(trader["user_id"])
-            return trader
-        else:
-            raise HTTPException(status_code=404, detail="Trader not found")
+        result = await trader_collection.update_one(
+            {"_id": ObjectId(brokerage.traderId)},
+            {"$set": {"brokerageName": brokerage.brokerageName}}
+        )
+        return {"message": "Brokerage updated successfully"}
     except Exception as e:
-        print(f"Error fetching trader: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to fetch trader") 
+        print(f"Error updating brokerage: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to update brokerage")
+
