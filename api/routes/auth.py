@@ -14,9 +14,7 @@ router = APIRouter()
 # Add this near the top with other initializations
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-@router.get("/autha")
-async def root():
-    return {"messagea": "Hello World"}
+
 
 @router.post("/signup", response_model=dict)
 async def create_trader(trader: TraderCreate, request: Request):
@@ -26,25 +24,15 @@ async def create_trader(trader: TraderCreate, request: Request):
         existing_trader = await trader_collection.find_one({"email": trader.email})
         
         if existing_trader:
-            # If trader exists but has no password (e.g., Google signup)
-            if 'password' not in existing_trader or not existing_trader['password']:
-                # Update with new password
-                hashed_password = pwd_context.hash(trader.password)
-                await trader_collection.update_one(
-                    {"email": trader.email},
-                    {"$set": {"password": hashed_password}}
-                )
-                return {"id": str(existing_trader['_id']), "message": "Password updated"}
-            else:
-                # If trader exists with password, prevent registration
-                raise HTTPException(
-                    status_code=400,
-                    detail="Email already registered"
-                )
+            # If trader exists, return message without updating
+            raise HTTPException(
+                status_code=400,
+                detail="User already exists"
+            )
         
         # Create new trader if doesn't exist
         trader_dict = trader.model_dump()
-        trader_dict["password"] = pwd_context.hash(trader_dict["password"])
+        trader_dict["password"] = trader_dict["password"]  # Store password directly
         trader_dict["user_id"] = str(ObjectId())
         result = await trader_collection.insert_one(trader_dict)
         return {"id": str(result.inserted_id)}
@@ -53,17 +41,6 @@ async def create_trader(trader: TraderCreate, request: Request):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-
-# @router.get("/traders", response_model=list)
-# async def get_traders(request: Request):
-#     try:
-#         traders = await request.state.db.traders.find().to_list(1000)
-#         return traders
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=str(e)) 
-
-
-# didn't test this
 class SignInRequest(BaseModel):
     email: str
     password: str
@@ -90,14 +67,13 @@ async def signin(request: Request, credentials: SignInRequest):
 
         try:
             print("verifying password")
-            # Verify password with explicit error handling
-            is_valid = pwd_context.verify(credentials.password, trader['password'])
-            if not is_valid:
+            # Direct password comparison
+            if credentials.password != trader['password']:
                 raise HTTPException(
                     status_code=401,
                     detail="Incorrect email or password"
                 )
-            print("password verified" , is_valid)
+            print("password verified")
         except Exception as password_error:
             print(f"Password verification error: {str(password_error)}")
             raise HTTPException(
@@ -114,12 +90,13 @@ async def signin(request: Request, credentials: SignInRequest):
             os.getenv("SECRET"),
             algorithm="HS256"
         )
-        print("auth_token" , auth_token)
+        print("auth_token", auth_token)
         return {
             "authToken": auth_token,
             "user": {
                 "email": trader['email'],
-                "user_id": str(trader['_id'])
+                "user_id": str(trader['_id']),
+                "role": trader['role']
             }
         }
         
