@@ -39,24 +39,7 @@ app.include_router(auth.router, prefix="/api/auth")
 app.include_router(trader.router, prefix="/api/trader")
 app.include_router(brokerage.router, prefix="/api/brokerage")
 
-# @app.middleware("http")
-# async def add_db_to_request(request, call_next):
-#     request.state.db = db
-#     response = await call_next(request)
-#     return response
 
-# async def init_db():
-#     try:
-#         existing_collections = await db.list_collection_names()
-#         if "OptionsTrading" not in existing_collections:
-#             await db.create_collection("traders")
-#             print("Created OptionsTrading collection")
-#     except Exception as e:
-#         print(f"Error creating collection: {str(e)}")
-
-# Run the initialization
-# asyncio.create_task(init_db())
-# loop = asyncio.new_event_loop()
 
 @app.get("/")
 async def read_root():

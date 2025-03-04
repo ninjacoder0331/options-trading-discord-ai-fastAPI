@@ -28,6 +28,7 @@ async def get_database(collection_name: str):
         
         # Check if collection exists
         collections = await db.list_collection_names()
+
         if "analyst" not in collections:
             print("Creating analyst collection with initial data...")
             analyst_collection = db.get_collection("analyst")
@@ -52,10 +53,10 @@ async def get_database(collection_name: str):
             await analyst_collection.insert_many(initial_analysts)
             print("Created analyst collection with all initial data")
         
-        
-
         collection = db.get_collection(collection_name)
+        print("collection")
         return collection
+    
     except Exception as e:
         print(f"Database connection error: {str(e)}")
         raise HTTPException(status_code=500, detail="Database connection failed")

@@ -1,10 +1,7 @@
 from fastapi import APIRouter, HTTPException, Request, Header, Depends
-# from fastapi.security import OAuth2PasswordRequestForm
 from ..models.trader import TraderCreate, Trader
 from bson import ObjectId
 from passlib.context import CryptContext # type: ignore
-import jwt # type: ignore
-import os
 from pydantic import BaseModel
 from typing import Optional
 from  ..database import get_database
@@ -17,7 +14,7 @@ router = APIRouter()
 @router.get("/getBrokerages")
 async def get_brokerages():
     try:
-        brokerage_collection = await get_database("brokerage")
+        brokerage_collection = await get_database("brokerageCollection")
         brokerages = await brokerage_collection.find().to_list(1000)
         
         # Convert ObjectId to string for JSON serialization
@@ -32,15 +29,9 @@ async def get_brokerages():
 @router.post("/create", response_model=dict)
 async def create_brokerage(brokerage: BrokerageCreate):
     try:
-        brokerage_collection = await get_database("brokerage")        
-        # Check if brokerage exists
-        existing_brokerage = await brokerage_collection.find_one({"name": brokerage.name})
-        
-        if existing_brokerage:
-            raise HTTPException(
-                status_code=400,
-                detail="Brokerage with this name already exists"
-            )
+        print("brokerage",brokerage)
+        brokerage_collection = await get_database("brokerageCollection")    
+        print("checked")    
         
         # Create new brokerage
         brokerage_dict = brokerage.model_dump()
@@ -50,3 +41,22 @@ async def create_brokerage(brokerage: BrokerageCreate):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+# Create a model for the delete request
+class DeleteBrokerageRequest(BaseModel):
+    brokerageId: str
+
+@router.post("/deleteBrokerage")
+async def delete_brokerage(request: DeleteBrokerageRequest):
+    try:
+        brokerage_collection = await get_database("brokerageCollection")
+        
+        # Convert string ID to ObjectId
+        result = await brokerage_collection.delete_one({"_id": ObjectId(request.brokerageId)})
+        
+        if result.deleted_count == 0:
+            raise HTTPException(status_code=404, detail="Brokerage not found")
+            
+        return {"message": "Brokerage deleted successfully"}
+    except Exception as e:
+        print(f"Error deleting brokerage: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to delete brokerage")

@@ -1,37 +1,45 @@
 from pydantic import BaseModel
 
 class BrokerageCreate(BaseModel):
-    brokerage_name: str
-    brokerage_type: str
-    login_name: str
+    brokerageName: str
+    brokerage: str
+    loginName: str
     password: str
-    account: str
+    accountNumber: str
+    apiInfo : str
+    apiLink : str
 
     class Config:
         json_schema_extra = {
             "example": {
-                "brokerage_name": "Zerodha",
-                "brokerage_type": "discount",
-                "login_name": "trader123",
+                "brokerageName": "Zerodha",
+                "brokerage": "discount",
+                "loginName": "trader123",
                 "password": "securepassword123",
-                "account": "AB1234"
+                "accountNumber": "AB1234",
+                "apiInfo": "apiInfo",
+                "apiLink": "apiLink"
             }
         }
 
 class Brokerage(BaseModel):
-    brokerage_name: str
-    brokerage_type: str
-    login_name: str
+    brokerageName: str
+    brokerage: str
+    loginName: str
     password: str
-    account: str
+    accountNumber: str
+    apiInfo : str
+    apiLink : str
 
     class Config:
         json_schema_extra = {
             "example": {
-                "brokerage_name": "Zerodha",
-                "brokerage_type": "discount",
-                "login_name": "trader123",
+                "brokerageName": "Zerodha",
+                "brokerage": "discount",
+                "loginName": "trader123",
                 "password": "securepassword123",
-                "account": "AB1234"
+                "accountNumber": "AB1234",
+                "apiInfo": "apiInfo",
+                "apiLink": "apiLink"
             }
         } 
