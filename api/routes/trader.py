@@ -25,45 +25,45 @@ async def get_traders():
         print(f"Error fetching traders: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to fetch traders")
 
-class Position(BaseModel):
-    email: str
-    symbol: str
-    date: str
-    optionType: str
+# class Position(BaseModel):
+#     email: str
+#     symbol: str
+#     date: str
+#     optionType: str
 
-@router.post("/addPosition")
-async def update_trader(Position: Position):
-    try:
-        print("Position: ", Position)
-        trader_collection = await get_database("traders")
-        result = await trader_collection.find_one(
-            {"email": Position.email},
-        )
-        id = result["_id"]
-        print("id: ", id)
+# @router.post("/addPosition")
+# async def update_trader(Position: Position):
+#     try:
+#         print("Position: ", Position)
+#         trader_collection = await get_database("traders")
+#         result = await trader_collection.find_one(
+#             {"email": Position.email},
+#         )
+#         id = result["_id"]
+#         print("id: ", id)
 
-        position_collection = await get_database("positions")
-        result = await position_collection.insert_one(
-            {"id": id, "email": Position.email, "symbol": Position.symbol, "date": Position.date, "optionType": Position.optionType}
-        )
+#         position_collection = await get_database("positions")
+#         result = await position_collection.insert_one(
+#             {"id": id, "email": Position.email, "symbol": Position.symbol, "date": Position.date, "optionType": Position.optionType}
+#         )
 
-        # Get API credentials from environment variables
-        # API_KEY = os.getenv("TRADESTATION_KEY")
-        # API_SECRET = os.getenv("TRADESTATION_SECRET")
-        # LOGIN_ID = os.getenv("LOGIN_ID")
+#         # Get API credentials from environment variables
+#         # API_KEY = os.getenv("TRADESTATION_KEY")
+#         # API_SECRET = os.getenv("TRADESTATION_SECRET")
+#         # LOGIN_ID = os.getenv("LOGIN_ID")
         
-        # # Establish your client
-        # client = a.easy_client(API_KEY, API_SECRET, "redirect")
+#         # # Establish your client
+#         # client = a.easy_client(API_KEY, API_SECRET, "redirect")
 
-        # Call your endpoint
-        # account = client.user_accounts()
-        print("result: ", result)
-        # print("account: ", account)
+#         # Call your endpoint
+#         # account = client.user_accounts()
+#         print("result: ", result)
+#         # print("account: ", account)
         
-        return {"message": "Position added successfully"}
-    except Exception as e:
-        print(f"Error adding position: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to add position")
+#         return {"message": "Position added successfully"}
+#     except Exception as e:
+#         print(f"Error adding position: {str(e)}")
+#         raise HTTPException(status_code=500, detail="Failed to add position")
 
 
 @router.get("/getAnalysts")
