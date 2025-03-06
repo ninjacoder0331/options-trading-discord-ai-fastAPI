@@ -15,4 +15,3 @@ pymongo>=4.6.0
 motor>=3.3.0
 
 # tradestation
-ts-api

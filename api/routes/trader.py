@@ -4,7 +4,6 @@ from bson import ObjectId
 from pydantic import BaseModel
 from ..models.brokerage import Brokerage
 import os
-import ts.auth as a
 import requests
 
 router = APIRouter()
