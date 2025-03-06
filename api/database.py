@@ -54,7 +54,6 @@ async def get_database(collection_name: str):
             print("Created analyst collection with all initial data")
         
         collection = db.get_collection(collection_name)
-        print("collection")
         return collection
     
     except Exception as e:
