@@ -60,7 +60,6 @@ async def get_database(collection_name: str):
         print(f"Database connection error: {str(e)}")
         raise HTTPException(status_code=500, detail="Database connection failed")
 
-async def init_analyst_collection():
     try:
         MONGODB_URL = os.getenv("MONGODB_URL")
         client = AsyncIOMotorClient(MONGODB_URL)
