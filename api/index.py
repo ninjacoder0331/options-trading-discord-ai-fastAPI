@@ -2,9 +2,9 @@ from fastapi import FastAPI, HTTPException
 from motor.motor_asyncio import AsyncIOMotorClient
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
-from .routes import auth
-from .routes import trader
-from .routes import brokerage
+# from .routes import auth
+# from .routes import trader
+# from .routes import brokerage
 import os
 import platform
 import asyncio
@@ -35,9 +35,9 @@ app.add_middleware(
 
 
 # Include routers
-app.include_router(auth.router, prefix="/api/auth")
-app.include_router(trader.router, prefix="/api/trader")
-app.include_router(brokerage.router, prefix="/api/brokerage")
+# app.include_router(auth.router, prefix="/api/auth")
+# app.include_router(trader.router, prefix="/api/trader")
+# app.include_router(brokerage.router, prefix="/api/brokerage")
 
 
 
