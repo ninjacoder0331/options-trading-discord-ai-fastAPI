@@ -123,7 +123,7 @@ async def add_position(position: Position):
         
         # Convert position to dict and add current time
         position_dict = position.model_dump()
-        position_dict["created_at"] = datetime.utcnow()
+        position_dict["created_at"] = datetime.now()
         
         print("position: ", position_dict)
         result = await position_collection.insert_one(position_dict)
