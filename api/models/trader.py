@@ -20,4 +20,28 @@ class Trader(BaseModel):
                 "password": "securepassword123",
                 "role": "trader"
             }
-        } 
+        }
+
+class Position(BaseModel):
+    orderSymbol: str
+    symbol: str
+    quantity: int
+    analyst: str
+    side: str
+    orderType: str
+    timeInForce: str
+    date: str
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "orderSymbol": "AAPL",
+                "symbol": "AAPL",
+                "quantity": 1,
+                "analyst": "John",
+                "side": "buy",
+                "orderType": "market",
+                "timeInForce": "day",
+                "date": "2024-03-20"
+            }
+        }
