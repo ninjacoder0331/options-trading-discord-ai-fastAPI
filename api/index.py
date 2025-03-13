@@ -8,7 +8,7 @@ from .routes import brokerage
 # import os
 # import platform
 # import asyncio
-# from .database import get_database
+from .database import get_database
 
 
 # if platform.system()=='Windows':
@@ -46,26 +46,26 @@ async def read_root():
     return {"message": "Welcome to FastAPI with MongoDB"}
 
 # Example endpoint to get items
-# @app.get("/items")
-# async def get_items():
-#     try:
-#         # Get count of traders collection
-#         trader_collection = await get_database("traders")
-#         count = await trader_collection.count_documents({})
-#         print(count)
-#         # Or get all traders
-#         return {"total_traders": count}
-#         # return {"message": "Hello World"}
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=str(e))
+@app.get("/items")
+async def get_items():
+    try:
+        # Get count of traders collection
+        trader_collection = await get_database("traders")
+        count = await trader_collection.count_documents({})
+        print(count)
+        # Or get all traders
+        return {"total_traders": count}
+        # return {"message": "Hello World"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # Example endpoint to create an item
-# @app.post("/items")
-# async def create_item(item: dict):
-#     try:
-#         global traders
-#         result = await traders.insert_one(item)
-#         return {"id": str(result.inserted_id)}
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=str(e))
+@app.post("/items")
+async def create_item(item: dict):
+    try:
+        global traders
+        result = await traders.insert_one(item)
+        return {"id": str(result.inserted_id)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
