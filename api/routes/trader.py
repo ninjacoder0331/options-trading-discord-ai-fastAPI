@@ -94,59 +94,59 @@ async def update_brokerage(brokerage: UpdateBrokerage):
         print(f"Error updating brokerage: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to update brokerage")
 
-# class DeleteTrader(BaseModel):
-#     traderId: str
+class DeleteTrader(BaseModel):
+    traderId: str
 
-# @router.post("/deleteTrader")
-# async def delete_trader(trader: DeleteTrader):
-#     try:
-#         trader_collection = await get_database("traders")
-#         result = await trader_collection.delete_one({"_id": ObjectId(trader.traderId)})
-#         return {"message": "Trader deleted successfully"}
-#     except Exception as e:
-#         print(f"Error deleting trader: {str(e)}")
-#         raise HTTPException(status_code=500, detail="Failed to delete trader")
+@router.post("/deleteTrader")
+async def delete_trader(trader: DeleteTrader):
+    try:
+        trader_collection = await get_database("traders")
+        result = await trader_collection.delete_one({"_id": ObjectId(trader.traderId)})
+        return {"message": "Trader deleted successfully"}
+    except Exception as e:
+        print(f"Error deleting trader: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to delete trader")
 
 
 
-# @router.post("/addPosition")
-# async def add_position(position: Position):
-#     try:
-#         position_collection = await get_database("positions")
-#         # Convert position to dict and add current time
-#         position_dict = position.model_dump()
-#         position_dict["created_at"] = datetime.now()
+@router.post("/addPosition")
+async def add_position(position: Position):
+    try:
+        position_collection = await get_database("positions")
+        # Convert position to dict and add current time
+        position_dict = position.model_dump()
+        position_dict["created_at"] = datetime.now()
         
-#         # print("position: ", position_dict)
-#         result = await position_collection.insert_one(position_dict)
-#         url = "https://paper-api.alpaca.markets/v2/orders"
-#         payload = {
-#             "type": "market",
-#             "time_in_force": "day",
-#             "side": position.side,
-#             "qty": position.quantity,
-#             "symbol": position.orderSymbol,
+        # print("position: ", position_dict)
+        result = await position_collection.insert_one(position_dict)
+        url = "https://paper-api.alpaca.markets/v2/orders"
+        payload = {
+            "type": "market",
+            "time_in_force": "day",
+            "side": position.side,
+            "qty": position.quantity,
+            "symbol": position.orderSymbol,
             
-#         }
+        }
 
-#         alpaca_api_key = os.getenv("ALPACA_API_KEY")
-#         alpaca_secret_key = os.getenv("ALPACA_SECRET_KEY")
-#         headers = {
-#                     "accept": "application/json",
-#                     "content-type": "application/json",
-#                     "APCA-API-KEY-ID": alpaca_api_key,
-#                     "APCA-API-SECRET-KEY": alpaca_secret_key
-#                 }
+        alpaca_api_key = os.getenv("ALPACA_API_KEY")
+        alpaca_secret_key = os.getenv("ALPACA_SECRET_KEY")
+        headers = {
+                    "accept": "application/json",
+                    "content-type": "application/json",
+                    "APCA-API-KEY-ID": alpaca_api_key,
+                    "APCA-API-SECRET-KEY": alpaca_secret_key
+                }
 
-#         print("payload: ", payload)
-#         response = requests.post(url, json=payload, headers=headers)
-#         print("response: ", response.text)
+        print("payload: ", payload)
+        response = requests.post(url, json=payload, headers=headers)
+        print("response: ", response.text)
 
-#         # print("result: ", result)
-#         return {"message": "Position added successfully"}
-#     except Exception as e:
-#         print(f"Error adding position: {str(e)}")
-#         raise HTTPException(status_code=500, detail="Failed to add position")
+        # print("result: ", result)
+        return {"message": "Position added successfully"}
+    except Exception as e:
+        print(f"Error adding position: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to add position")
     
 # # get Traders Data
 # @router.get("/getTraderData")
