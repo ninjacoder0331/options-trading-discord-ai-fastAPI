@@ -1,10 +1,10 @@
 from fastapi import FastAPI, HTTPException
-from motor.motor_asyncio import AsyncIOMotorClient
+# from motor.motor_asyncio import AsyncIOMotorClient
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
-from .routes import auth
-from .routes import trader
-from .routes import brokerage
+# from .routes import auth
+# from .routes import trader
+# from .routes import brokerage
 # import os
 # import platform
 # import asyncio
