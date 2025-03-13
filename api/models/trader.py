@@ -31,6 +31,10 @@ class Position(BaseModel):
     orderType: str
     timeInForce: str
     date: str
+    entryPrice : float
+    closePrice : float = 0.0
+    status : str = "open"
+
 
     class Config:
         json_schema_extra = {
@@ -42,6 +46,7 @@ class Position(BaseModel):
                 "side": "buy",
                 "orderType": "market",
                 "timeInForce": "day",
-                "date": "2024-03-20"
+                "date": "2024-03-20",
+                "entryPrice": 100
             }
         }
