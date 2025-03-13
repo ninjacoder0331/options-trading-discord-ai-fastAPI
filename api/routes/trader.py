@@ -2,7 +2,6 @@ from fastapi import APIRouter, HTTPException
 from ..database import get_database
 from bson import ObjectId
 from pydantic import BaseModel
-from ..models.brokerage import Brokerage
 from ..models.trader import Position
 import os
 from datetime import datetime
@@ -10,9 +9,6 @@ import requests
 import json
 
 router = APIRouter()
-
-
-
 
 @router.get("/getTraders")
 async def get_traders():

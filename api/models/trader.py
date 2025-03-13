@@ -35,7 +35,6 @@ class Position(BaseModel):
     closePrice : float = 0.0
     status : str = "open"
 
-
     class Config:
         json_schema_extra = {
             "example": {
