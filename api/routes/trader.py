@@ -12,14 +12,7 @@ import json
 router = APIRouter()
 
 
-alpaca_api_key = os.getenv("ALPACA_API_KEY")
-alpaca_secret_key = os.getenv("ALPACA_SECRET_KEY")
-headers = {
-            "accept": "application/json",
-            "content-type": "application/json",
-            "APCA-API-KEY-ID": alpaca_api_key,
-            "APCA-API-SECRET-KEY": alpaca_secret_key
-        }
+
 
 @router.get("/getTraders")
 async def get_traders():
@@ -127,75 +120,85 @@ async def delete_trader(trader: DeleteTrader):
 
 
 
-# @router.post("/addPosition")
-# async def add_position(position: Position):
-#     try:
-#         position_collection = await get_database("positions")
-#         # Convert position to dict and add current time
-#         position_dict = position.model_dump()
-#         position_dict["created_at"] = datetime.now()
+@router.post("/addPosition")
+async def add_position(position: Position):
+    try:
+        position_collection = await get_database("positions")
+        # Convert position to dict and add current time
+        position_dict = position.model_dump()
+        position_dict["created_at"] = datetime.now()
         
-#         # print("position: ", position_dict)
-#         result = await position_collection.insert_one(position_dict)
-#         url = "https://paper-api.alpaca.markets/v2/orders"
-#         payload = {
-#             "type": "market",
-#             "time_in_force": "day",
-#             "side": position.side,
-#             "qty": position.quantity,
-#             "symbol": position.orderSymbol,
+        # print("position: ", position_dict)
+        result = await position_collection.insert_one(position_dict)
+        url = "https://paper-api.alpaca.markets/v2/orders"
+        payload = {
+            "type": "market",
+            "time_in_force": "day",
+            "side": position.side,
+            "qty": position.quantity,
+            "symbol": position.orderSymbol,
             
-#         }
-#         print("payload: ", payload)
-#         response = requests.post(url, json=payload, headers=headers)
-#         print("response: ", response.text)
+        }
 
-#         # print("result: ", result)
-#         return {"message": "Position added successfully"}
-#     except Exception as e:
-#         print(f"Error adding position: {str(e)}")
-#         raise HTTPException(status_code=500, detail="Failed to add position")
+        alpaca_api_key = os.getenv("ALPACA_API_KEY")
+        alpaca_secret_key = os.getenv("ALPACA_SECRET_KEY")
+        headers = {
+                    "accept": "application/json",
+                    "content-type": "application/json",
+                    "APCA-API-KEY-ID": alpaca_api_key,
+                    "APCA-API-SECRET-KEY": alpaca_secret_key
+                }
+
+        print("payload: ", payload)
+        response = requests.post(url, json=payload, headers=headers)
+        print("response: ", response.text)
+
+        # print("result: ", result)
+        return {"message": "Position added successfully"}
+    except Exception as e:
+        print(f"Error adding position: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to add position")
     
 # get Traders Data
-# @router.get("/getTraderData")
-# async def get_trader_data():
-#     try:
-#         # Get analysts data
-#         analyst_collection = await get_database("analyst")
-#         analysts = await analyst_collection.find().to_list(1000)
+@router.get("/getTraderData")
+async def get_trader_data():
+    try:
+        # Get analysts data
+        analyst_collection = await get_database("analyst")
+        analysts = await analyst_collection.find().to_list(1000)
         
-#         # Get positions data
-#         position_collection = await get_database("positions")
-#         positions = await position_collection.find().to_list(1000)
+        # Get positions data
+        position_collection = await get_database("positions")
+        positions = await position_collection.find().to_list(1000)
         
-#         # Convert ObjectId to string for JSON serialization
-#         for analyst in analysts:
-#             analyst["_id"] = str(analyst["_id"])
+        # Convert ObjectId to string for JSON serialization
+        for analyst in analysts:
+            analyst["_id"] = str(analyst["_id"])
         
-#         for position in positions:
-#             position["_id"] = str(position["_id"])
-#             # Convert datetime to string if it exists
-#             if "created_at" in position:
-#                 position["created_at"] = position["created_at"].isoformat()
+        for position in positions:
+            position["_id"] = str(position["_id"])
+            # Convert datetime to string if it exists
+            if "created_at" in position:
+                position["created_at"] = position["created_at"].isoformat()
         
-#         # Return combined data
-#         return {
-#             "analysts": analysts,
-#             "positions": positions
-#         }
-#     except Exception as e:
-#         print(f"Error fetching trader data: {str(e)}")
-#         raise HTTPException(status_code=500, detail="Failed to fetch trader data")
+        # Return combined data
+        return {
+            "analysts": analysts,
+            "positions": positions
+        }
+    except Exception as e:
+        print(f"Error fetching trader data: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to fetch trader data")
     
-# @router.get("/getOpenPositions")
-# async def get_options_position():
-#    result = await get_position_status("open")
-#    return result
+@router.get("/getOpenPositions")
+async def get_options_position():
+   result = await get_position_status("open")
+   return result
 
-# @router.get("/getClosePositions")
-# async def get_closed_positions():
-#     result = await get_position_status("close")
-#     return result
+@router.get("/getClosePositions")
+async def get_closed_positions():
+    result = await get_position_status("close")
+    return result
 
 
 async def get_position_status(position):
@@ -216,6 +219,16 @@ async def get_position_status(position):
             if "created_at" in position:
                 position["created_at"] = position["created_at"].isoformat()
             if position['orderSymbol'] != '':
+
+                alpaca_api_key = os.getenv("ALPACA_API_KEY")
+                alpaca_secret_key = os.getenv("ALPACA_SECRET_KEY")
+                headers = {
+                            "accept": "application/json",
+                            "content-type": "application/json",
+                            "APCA-API-KEY-ID": alpaca_api_key,
+                            "APCA-API-SECRET-KEY": alpaca_secret_key
+                        }
+
                 # url = f"https://data.alpaca.markets/v1beta1/options/quotes/latest?symbols={position['orderSymbol']}&feed=indicative"
                 url = f"https://data.alpaca.markets/v1beta1/options/quotes/latest?symbols={position['orderSymbol']}&feed=indicative"
                 response = requests.get(url, headers=headers)
@@ -282,7 +295,17 @@ async def sell_all(sellAll: SellAll):
                 orderSymbol = position["orderSymbol"]
             else:
                 raise ValueError(f"No position found with ID: {sellAll.id}")
-            print("orderSymbol: ", orderSymbol)
+            # print("orderSymbol: ", orderSymbol)
+
+            alpaca_api_key = os.getenv("ALPACA_API_KEY")
+            alpaca_secret_key = os.getenv("ALPACA_SECRET_KEY")
+            headers = {
+                        "accept": "application/json",
+                        "content-type": "application/json",
+                        "APCA-API-KEY-ID": alpaca_api_key,
+                        "APCA-API-SECRET-KEY": alpaca_secret_key
+                    }
+
             url = f"https://data.alpaca.markets/v1beta1/options/quotes/latest?symbols={orderSymbol}&feed=indicative"
             print("url: ", url)
             print("headers: ", headers)
