@@ -5,8 +5,11 @@ from pydantic import BaseModel
 from ..models.trader import Position
 import os
 from datetime import datetime
-import requests
+# import requests
 import json
+from dotenv import load_dotenv
+
+load_dotenv()
 
 router = APIRouter()
 
