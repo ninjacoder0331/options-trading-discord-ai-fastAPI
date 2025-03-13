@@ -16,7 +16,7 @@ from .database import get_database
 # else:
 #     asyncio.set_event_loop_policy(asyncio.DefaultEventLoopPolicy())
 # Load environment variables
-load_dotenv()
+# load_dotenv()
 
 app = FastAPI()
 
