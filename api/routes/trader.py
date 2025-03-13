@@ -127,75 +127,75 @@ async def delete_trader(trader: DeleteTrader):
 
 
 
-@router.post("/addPosition")
-async def add_position(position: Position):
-    try:
-        position_collection = await get_database("positions")
-        # Convert position to dict and add current time
-        position_dict = position.model_dump()
-        position_dict["created_at"] = datetime.now()
+# @router.post("/addPosition")
+# async def add_position(position: Position):
+#     try:
+#         position_collection = await get_database("positions")
+#         # Convert position to dict and add current time
+#         position_dict = position.model_dump()
+#         position_dict["created_at"] = datetime.now()
         
-        # print("position: ", position_dict)
-        result = await position_collection.insert_one(position_dict)
-        url = "https://paper-api.alpaca.markets/v2/orders"
-        payload = {
-            "type": "market",
-            "time_in_force": "day",
-            "side": position.side,
-            "qty": position.quantity,
-            "symbol": position.orderSymbol,
+#         # print("position: ", position_dict)
+#         result = await position_collection.insert_one(position_dict)
+#         url = "https://paper-api.alpaca.markets/v2/orders"
+#         payload = {
+#             "type": "market",
+#             "time_in_force": "day",
+#             "side": position.side,
+#             "qty": position.quantity,
+#             "symbol": position.orderSymbol,
             
-        }
-        print("payload: ", payload)
-        response = requests.post(url, json=payload, headers=headers)
-        print("response: ", response.text)
+#         }
+#         print("payload: ", payload)
+#         response = requests.post(url, json=payload, headers=headers)
+#         print("response: ", response.text)
 
-        # print("result: ", result)
-        return {"message": "Position added successfully"}
-    except Exception as e:
-        print(f"Error adding position: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to add position")
+#         # print("result: ", result)
+#         return {"message": "Position added successfully"}
+#     except Exception as e:
+#         print(f"Error adding position: {str(e)}")
+#         raise HTTPException(status_code=500, detail="Failed to add position")
     
 # get Traders Data
-@router.get("/getTraderData")
-async def get_trader_data():
-    try:
-        # Get analysts data
-        analyst_collection = await get_database("analyst")
-        analysts = await analyst_collection.find().to_list(1000)
+# @router.get("/getTraderData")
+# async def get_trader_data():
+#     try:
+#         # Get analysts data
+#         analyst_collection = await get_database("analyst")
+#         analysts = await analyst_collection.find().to_list(1000)
         
-        # Get positions data
-        position_collection = await get_database("positions")
-        positions = await position_collection.find().to_list(1000)
+#         # Get positions data
+#         position_collection = await get_database("positions")
+#         positions = await position_collection.find().to_list(1000)
         
-        # Convert ObjectId to string for JSON serialization
-        for analyst in analysts:
-            analyst["_id"] = str(analyst["_id"])
+#         # Convert ObjectId to string for JSON serialization
+#         for analyst in analysts:
+#             analyst["_id"] = str(analyst["_id"])
         
-        for position in positions:
-            position["_id"] = str(position["_id"])
-            # Convert datetime to string if it exists
-            if "created_at" in position:
-                position["created_at"] = position["created_at"].isoformat()
+#         for position in positions:
+#             position["_id"] = str(position["_id"])
+#             # Convert datetime to string if it exists
+#             if "created_at" in position:
+#                 position["created_at"] = position["created_at"].isoformat()
         
-        # Return combined data
-        return {
-            "analysts": analysts,
-            "positions": positions
-        }
-    except Exception as e:
-        print(f"Error fetching trader data: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to fetch trader data")
+#         # Return combined data
+#         return {
+#             "analysts": analysts,
+#             "positions": positions
+#         }
+#     except Exception as e:
+#         print(f"Error fetching trader data: {str(e)}")
+#         raise HTTPException(status_code=500, detail="Failed to fetch trader data")
     
-@router.get("/getOpenPositions")
-async def get_options_position():
-   result = await get_position_status("open")
-   return result
+# @router.get("/getOpenPositions")
+# async def get_options_position():
+#    result = await get_position_status("open")
+#    return result
 
-@router.get("/getClosePositions")
-async def get_closed_positions():
-    result = await get_position_status("close")
-    return result
+# @router.get("/getClosePositions")
+# async def get_closed_positions():
+#     result = await get_position_status("close")
+#     return result
 
 
 async def get_position_status(position):
@@ -321,23 +321,5 @@ async def sell_all(sellAll: SellAll):
     except Exception as e:
         print(f"Error selling all positions: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to sell all positions")
-        
 
-
-# @router.get("/getAllTickers")
-# async def get_all_tickers():
-#     try:
-#         url = "https://paper-api.alpaca.markets/v2/assets?status=active&asset_class=us_equity&attributes=has_options"
-#         response = requests.get(url, headers=headers)
-
-#         tickers = []
-#         print("response.text: ", response.text)
-#         for ticker in response.text:
-#             print("tiker " , ticker)
-#             tickers.append(ticker)
-
-#         return tickers
-
-#     except Exception as e:
-#         print(f"Error fetching all tickers: {str(e)}")
         
