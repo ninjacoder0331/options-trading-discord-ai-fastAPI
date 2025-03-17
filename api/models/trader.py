@@ -32,8 +32,17 @@ class Position(BaseModel):
     timeInForce: str
     date: str
     entryPrice : float
+    
+    childType : str
+    userID : str
+    amount : int
+    soldAmount : int = 0
+    exitDate : str = ""
+    strikePrice : float
+
     closePrice : float = 0.0
     status : str = "open"
+
 
     class Config:
         json_schema_extra = {
@@ -46,6 +55,12 @@ class Position(BaseModel):
                 "orderType": "market",
                 "timeInForce": "day",
                 "date": "2024-03-20",
-                "entryPrice": 100
+                "entryPrice": 100,
+                "childType": "option",
+                "userID": "123",
+                "amount": 100,
+                "soldAmount": 0,
+                "exitDate": "",
+                "strikePrice": 100
             }
         }

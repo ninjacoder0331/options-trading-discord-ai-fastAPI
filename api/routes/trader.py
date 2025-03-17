@@ -30,35 +30,35 @@ async def get_traders():
         print(f"Error fetching traders: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to fetch traders")
 
-class Position(BaseModel):
-    email: str
-    symbol: str
-    date: str
-    optionType: str
+# class Position(BaseModel):
+#     email: str
+#     symbol: str
+#     date: str
+#     optionType: str
 
-@router.post("/addPosition")
-async def update_trader(Position: Position):
-    try:
-        print("Position: ", Position)
-        trader_collection = await get_database("traders")
-        result = await trader_collection.find_one(
-            {"email": Position.email},
-        )
-        id = result["_id"]
-        print("id: ", id)
+# @router.post("/addPosition")
+# async def update_trader(Position: Position):
+#     try:
+#         print("Position: ", Position)
+#         trader_collection = await get_database("traders")
+#         result = await trader_collection.find_one(
+#             {"email": Position.email},
+#         )
+#         id = result["_id"]
+#         print("id: ", id)
 
-        position_collection = await get_database("positions")
-        result = await position_collection.insert_one(
-            {"id": id, "email": Position.email, "symbol": Position.symbol, "date": Position.date, "optionType": Position.optionType}
-        )
+#         position_collection = await get_database("positions")
+#         result = await position_collection.insert_one(
+#             {"id": id, "email": Position.email, "symbol": Position.symbol, "date": Position.date, "optionType": Position.optionType}
+#         )
 
-        print("result: ", result)
-        # print("account: ", account)
+#         print("result: ", result)
+#         # print("account: ", account)
         
-        return {"message": "Position added successfully"}
-    except Exception as e:
-        print(f"Error adding position: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to add position")
+#         return {"message": "Position added successfully"}
+#     except Exception as e:
+#         print(f"Error adding position: {str(e)}")
+#         raise HTTPException(status_code=500, detail="Failed to add position")
 
 
 @router.get("/getAnalysts")
@@ -138,9 +138,9 @@ async def add_position(position: Position):
                     "APCA-API-SECRET-KEY": alpaca_secret_key
                 }
 
-        print("payload: ", payload)
-        response = requests.post(url, json=payload, headers=headers)
-        print("response: ", response.text)
+        # print("payload: ", payload)
+        # response = requests.post(url, json=payload, headers=headers)
+        # print("response: ", response.text)
 
         # print("result: ", result)
         return {"message": "Position added successfully"}
@@ -207,7 +207,7 @@ async def get_position_status(position):
             # Convert datetime to string if it exists
             if "created_at" in position:
                 position["created_at"] = position["created_at"].isoformat()
-            if position['orderSymbol'] != '':
+            if position['orderSymbol'] != '' and position['status'] == "open":
 
                 alpaca_api_key = os.getenv("ALPACA_API_KEY")
                 alpaca_secret_key = os.getenv("ALPACA_SECRET_KEY")
@@ -219,7 +219,7 @@ async def get_position_status(position):
                         }
 
                 # url = f"https://data.alpaca.markets/v1beta1/options/quotes/latest?symbols={position['orderSymbol']}&feed=indicative"
-                url = f"https://data.alpaca.markets/v1beta1/options/quotes/latest?symbols={position['orderSymbol']}&feed=indicative"
+                url = f"https://data.alpaca.markets/v1beta1/options/quotes/latest?symbols={position['orderSymbol']}"
                 response = requests.get(url, headers=headers)
                 print("response: ", response.text)
                 # if position == "open":
@@ -266,25 +266,28 @@ def get_bid_price(response_data, symbol):
         print(f"Error parsing JSON: {e}")
         bid_price = 0.0
     except (KeyError, TypeError) as e:
-        print(f"Error accessing data: {e}")
+        print(f"Error accessing bid price data: {e}")
         bid_price = 0.0
 
 class SellAll(BaseModel):
     id: str
+    amount : int
 
-@router.post("/sellAll")
+@router.post("/sellAmount")
 async def sell_all(sellAll: SellAll):
     try:
         position_collection = await get_database("positions")
         # Update the status from "open" to "close" where _id matches
         try:
-            print("sellAll.id: ", sellAll.id)
+            # print("sellAll.id: ", sellAll.id)
             position = await position_collection.find_one({"_id": ObjectId(sellAll.id)})
             if position:
                 orderSymbol = position["orderSymbol"]
             else:
                 raise ValueError(f"No position found with ID: {sellAll.id}")
             # print("orderSymbol: ", orderSymbol)
+            position_amount = position.get("amount")
+            position_soldAmount = position.get("soldAmount")
 
             alpaca_api_key = os.getenv("ALPACA_API_KEY")
             alpaca_secret_key = os.getenv("ALPACA_SECRET_KEY")
@@ -296,20 +299,28 @@ async def sell_all(sellAll: SellAll):
                     }
 
             url = f"https://data.alpaca.markets/v1beta1/options/quotes/latest?symbols={orderSymbol}&feed=indicative"
-            print("url: ", url)
-            print("headers: ", headers)
+            # print("url: ", url)
+            # print("headers: ", headers)
             response = requests.get(url, headers=headers)
             print("response: ", response.text)
             closePrice = get_bid_price(response.text, orderSymbol)
 
-            print("closePrice: ", closePrice)
-            await position_collection.update_one(
-                {"_id": ObjectId(sellAll.id)},
-                {"$set": {"status": "close" , "closePrice": closePrice}}
-            )
+            # print("closePrice: ", closePrice)
+            # First get the current document to check if soldAmount exists
+            
+            if (position_soldAmount + sellAll.amount) < position_amount:
+                await position_collection.update_one(
+                    {"_id": ObjectId(sellAll.id)},
+                    {"$set": { "closePrice": closePrice, "soldAmount": position_soldAmount + sellAll.amount}}
+                )
+            elif (position_soldAmount + sellAll.amount) == position_amount or (position_soldAmount + sellAll.amount) > position_amount:
+                await position_collection.update_one(
+                    {"_id": ObjectId(sellAll.id)},
+                    {"$set": {"status": "close", "closePrice": closePrice, "soldAmount": position_amount, "exitDate": datetime.now().isoformat()}}
+                )
         except Exception as e:
-            print(f"Error updating status: {str(e)}")
-            raise HTTPException(status_code=500, detail="Failed to update status")
+            print(f"Error updating position: {e}")
+            raise HTTPException(status_code=500, detail="Failed to update position")
 
         try:
             orderSymbol = position_collection.find_one({"_id": ObjectId(sellAll.id)})["orderSymbol"]
@@ -324,8 +335,8 @@ async def sell_all(sellAll: SellAll):
                 "symbol": orderSymbol,
                 
             }
-            response = requests.post(url, json=payload, headers=headers)
-            print("response: ", response.text)
+            # response = requests.post(url, json=payload, headers=headers)
+            # print("response: ", response.text)
 
         except Exception as e:
             print("Error selling all positions: ", str(e))

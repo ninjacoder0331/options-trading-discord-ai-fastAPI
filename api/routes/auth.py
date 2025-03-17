@@ -91,6 +91,7 @@ async def signin(request: Request, credentials: SignInRequest):
             algorithm="HS256"
         )
         print("auth_token", auth_token)
+        print("trader", trader['_id'])
         return {
             "authToken": auth_token,
             "user": {
