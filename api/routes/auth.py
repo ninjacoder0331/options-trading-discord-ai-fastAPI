@@ -16,7 +16,6 @@ router = APIRouter()
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
-
 @router.post("/signup", response_model=dict)
 async def create_trader(trader: TraderCreate, request: Request):
     try:
@@ -55,12 +54,18 @@ async def signin(request: Request, credentials: SignInRequest):
         # Find trader by email
         trader = await trader_collection.find_one({"email": credentials.email})
         
-        if not trader:
+        if not trader :
             raise HTTPException(
                 status_code=401,
                 detail="Incorrect email or password"
             )
 
+        if trader["status"] == "stop":
+            raise HTTPException(
+                status_code=401,
+                detail="Account is currently disabled , contact Admin"
+            )
+        
         # Check if password exists in trader document
         if 'password' not in trader:
             raise HTTPException(
