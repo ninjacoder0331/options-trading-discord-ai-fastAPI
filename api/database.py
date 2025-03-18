@@ -36,19 +36,23 @@ async def get_database(collection_name: str):
             # Initial analysts data
             initial_analysts = [{
                     "name": "John",
-                    "type": "analyst1"
+                    "type": "analyst1",
+                    "status": "start"
                 },
                 {
                     "name": "WiseGuy",
-                    "type": "analyst2"
+                    "type": "analyst2",
+                    "status": "start"
                 },
                 {
                     "name": "Tommy",
-                    "type": "analyst3"
+                    "type": "analyst3",
+                    "status": "start"
                 },
                 {
                     "name": "Johnny",
-                    "type": "analyst4"
+                    "type": "analyst4",
+                    "status": "start"
                 }]
             await analyst_collection.insert_many(initial_analysts)
             print("Created analyst collection with all initial data")

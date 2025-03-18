@@ -8,6 +8,7 @@ import os
 from pydantic import BaseModel
 from typing import Optional
 from  ..database import get_database
+from datetime import datetime
 
 router = APIRouter()
 
@@ -34,6 +35,8 @@ async def create_trader(trader: TraderCreate, request: Request):
         trader_dict = trader.model_dump()
         trader_dict["password"] = trader_dict["password"]  # Store password directly
         trader_dict["user_id"] = str(ObjectId())
+        trader_dict["created_at"] = datetime.now().isoformat()
+        trader_dict["status"] = "start"
         result = await trader_collection.insert_one(trader_dict)
         return {"id": str(result.inserted_id)}
         

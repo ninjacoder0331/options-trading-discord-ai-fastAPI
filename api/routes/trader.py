@@ -115,7 +115,7 @@ async def add_position(position: Position):
         position_collection = await get_database("positions")
         # Convert position to dict and add current time
         position_dict = position.model_dump()
-        position_dict["created_at"] = datetime.now()
+        position_dict["created_at"] = datetime.now().isoformat()
         
         # print("position: ", position_dict)
         result = await position_collection.insert_one(position_dict)
@@ -206,7 +206,7 @@ async def get_position_status(position):
             position["_id"] = str(position["_id"])
             # Convert datetime to string if it exists
             if "created_at" in position:
-                position["created_at"] = position["created_at"].isoformat()
+                position["created_at"] = position["created_at"]
             if position['orderSymbol'] != '' and position['status'] == "open":
 
                 alpaca_api_key = os.getenv("ALPACA_API_KEY")
@@ -345,4 +345,53 @@ async def sell_all(sellAll: SellAll):
         print(f"Error selling all positions: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to sell all positions")
 
-        
+
+class StartStopTrader(BaseModel):
+    id: str
+
+@router.post("/startStopTrader")
+async def start_stop_trader(startStopTrader: StartStopTrader):
+    try:
+        trader_collection = await get_database("traders")
+        trader = await trader_collection.find_one({"_id": ObjectId(startStopTrader.id)})
+        if trader:
+            trader_status = trader["status"]
+            if trader_status == "stop":
+                result = await trader_collection.update_one(
+                    {"_id": ObjectId(startStopTrader.id)},
+                    {"$set": {"status": "start"}}
+                )
+            else:
+                result = await trader_collection.update_one(
+                    {"_id": ObjectId(startStopTrader.id)},
+                    {"$set": {"status": "stop"}}    
+                )
+        return {"message": "Trader status updated successfully"}
+    except Exception as e:
+        print(f"Error updating trader status: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to update trader status")
+
+class StartStopAnalyst(BaseModel):
+    id: str
+
+@router.post("/startStopAnalyst")
+async def start_stop_analyst(startStopAnalyst: StartStopAnalyst):
+    try:
+        analyst_collection = await get_database("analyst")
+        analyst = await analyst_collection.find_one({"_id": ObjectId(startStopAnalyst.id)})
+        if analyst:
+            analyst_status = analyst["status"]
+            if analyst_status == "stop":
+                result = await analyst_collection.update_one(
+                    {"_id": ObjectId(startStopAnalyst.id)},
+                    {"$set": {"status": "start"}}
+                )
+            else:
+                result = await analyst_collection.update_one(   
+                    {"_id": ObjectId(startStopAnalyst.id)},
+                    {"$set": {"status": "stop"}}
+                )
+        return {"message": "Analyst status updated successfully"}
+    except Exception as e:
+        print(f"Error updating analyst status: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to update analyst status")
