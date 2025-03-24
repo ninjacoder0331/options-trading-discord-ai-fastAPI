@@ -42,6 +42,26 @@ async def create_trader(trader: TraderCreate, request: Request):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+class TraderUpdate(BaseModel):
+    email: str
+    amount: int
+    name : str
+    password : str
+    traderId : str
+
+@router.post("/updateTrader" , response_model=dict)
+async def update_trader(trader: TraderUpdate):
+    try:
+        print("trader: ", trader)
+        trader_collection = await get_database("traders")
+        result = await trader_collection.update_one(
+            {"_id": ObjectId(trader.traderId)},
+            {"$set": trader.model_dump()}
+        )
+        print("result: ", result)
+        return {"message": "Trader updated successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 class SignInRequest(BaseModel):
     email: str
