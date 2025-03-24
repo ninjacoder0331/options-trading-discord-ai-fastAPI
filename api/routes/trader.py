@@ -401,9 +401,9 @@ async def sell_all(sellAll: SellAll):
             url = "https://paper-api.alpaca.markets/v2/orders"
 
             # print("url: ", url)
-            print("payload: ", payload)
-            print("headers: ", headers)
-            print("url: ", url)
+            # print("payload: ", payload)
+            # print("headers: ", headers)
+            # print("url: ", url)
             response = requests.post(url, json=payload, headers=headers)
             print("response_status_code: ", response.status_code)
             print("response: ", response.json())
@@ -411,6 +411,16 @@ async def sell_all(sellAll: SellAll):
                 
                 closePrice = get_bid_price(response.text, orderSymbol)
 
+                current_sold_usd_amount = sellAll.amount * closePrice
+                trader_collection = await get_database("traders")
+                trader = await trader_collection.find_one({"_id": ObjectId(position.userID)})
+                trader_amount = trader["amount"]
+                trader_amount = trader_amount + current_sold_usd_amount
+                await trader_collection.update_one(
+                    {"_id": ObjectId(position.userID)},
+                    {"$set": {"amount": trader_amount}}
+                )
+                
                 # print("closePrice: ", closePrice)
                 # First get the current document to check if soldAmount exists
                 
@@ -424,6 +434,9 @@ async def sell_all(sellAll: SellAll):
                         {"_id": ObjectId(sellAll.id)},
                         {"$set": {"status": "close", "closePrice": closePrice, "soldAmount": position_amount, "exitDate": datetime.now().isoformat()}}
                     )
+                
+                
+
                 return 200
             else:
                 return 422
