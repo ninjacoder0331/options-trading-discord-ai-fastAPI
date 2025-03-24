@@ -137,6 +137,7 @@ async def add_position(position: Position):
             "symbol": position.orderSymbol,
             "qty": position.amount,
             "side": "buy",
+            
         }
 
         alpaca_api_key = os.getenv("ALPACA_API_KEY")
