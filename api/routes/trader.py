@@ -114,7 +114,22 @@ async def delete_trader(trader: DeleteTrader):
 @router.post("/addPosition")
 async def add_position(position: Position):
     try:
+        trader_collection = await get_database("traders")
+        trader = await trader_collection.find_one({"userID": position.userID})
+        amount = 0
+        
+        if trader:
+            trader_id = trader["_id"]
+            trader_amount = trader["amount"]
+            if trader_amount < position.strikePrice:
+                raise HTTPException(status_code=404, detail="Insufficient balance")
+            else :
+                amount = trader_amount / position.strikePrice
+        else:
+            raise HTTPException(status_code=404, detail="User not found")
+        position.amount = amount
         position_collection = await get_database("positions")
+
         url = "https://paper-api.alpaca.markets/v2/orders"
         payload = {
             "type": "market",
@@ -123,7 +138,6 @@ async def add_position(position: Position):
             "qty": position.amount,
             "side": "buy",
         }
-
 
         alpaca_api_key = os.getenv("ALPACA_API_KEY")
         alpaca_secret_key = os.getenv("ALPACA_SECRET_KEY")
