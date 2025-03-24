@@ -5,6 +5,7 @@ class TraderCreate(BaseModel):
     password: str
     email: str
     role : str = "trader"
+    amount : int = 0
 
 class Trader(BaseModel):
     name: str
