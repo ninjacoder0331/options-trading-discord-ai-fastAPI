@@ -365,12 +365,10 @@ def get_bid_price(response_data, symbol):
             response_data = json.loads(response_data)
         
         bid_price = float(response_data["quotes"][symbol]["bp"])
+        print("bid_price: ", bid_price)
         return bid_price
     except json.JSONDecodeError as e:
         print(f"Error parsing JSON: {e}")
-        bid_price = 0.0
-    except (KeyError, TypeError) as e:
-        print(f"Error accessing bid price data: {e}")
         bid_price = 0.0
 
 class SellAll(BaseModel):
@@ -385,13 +383,17 @@ async def sell_all(sellAll: SellAll):
         try:
             # print("sellAll.id: ", sellAll.id)
             position = await position_collection.find_one({"_id": ObjectId(sellAll.id)})
+            orderSymbol = ""
             if position:
                 orderSymbol = position["orderSymbol"]
             else:
                 raise ValueError(f"No position found with ID: {sellAll.id}")
-            # print("orderSymbol: ", orderSymbol)
+            print("orderSymbol: ", orderSymbol)
+            print("position: ", position)
+
             position_amount = position.get("amount")
             position_soldAmount = position.get("soldAmount")
+            userID = position.get("userID")
 
             alpaca_api_key = os.getenv("ALPACA_API_KEY")
             alpaca_secret_key = os.getenv("ALPACA_SECRET_KEY")
@@ -403,6 +405,8 @@ async def sell_all(sellAll: SellAll):
                 "qty":  sellAll.amount,
                 "side": "sell",
             }
+
+            print("payload" , payload)
             
             headers = {
                         "accept": "application/json",
@@ -420,27 +424,36 @@ async def sell_all(sellAll: SellAll):
             print("response_status_code: ", response.status_code)
             print("response: ", response.json())
             if(response.status_code == 200):
-                
+
+                print("orderSymbol: ", orderSymbol)
+                url = f"https://data.alpaca.markets/v1beta1/options/quotes/latest?symbols={orderSymbol}"
+                response = requests.get(url, headers=headers)
+                print("response: ", response.text)
                 closePrice = get_bid_price(response.text, orderSymbol)
 
-                current_sold_usd_amount = sellAll.amount * closePrice
+                print("closePrice: ", closePrice)
+                print("userID: ", userID)
+
+                current_sold_usd_amount = sellAll.amount * closePrice * 100
                 trader_collection = await get_database("traders")
-                trader = await trader_collection.find_one({"_id": ObjectId(position.userID)})
+                trader = await trader_collection.find_one({"_id": ObjectId(userID)})
                 trader_amount = trader["amount"]
                 trader_amount = trader_amount + current_sold_usd_amount
+
+                print("trader_amount: ", trader_amount)
                 await trader_collection.update_one(
-                    {"_id": ObjectId(position.userID)},
+                    {"_id": ObjectId(userID)},
                     {"$set": {"amount": trader_amount}}
                 )
                 
                 # print("closePrice: ", closePrice)
                 # First get the current document to check if soldAmount exists
-                
                 if (position_soldAmount + sellAll.amount) < position_amount:
                     await position_collection.update_one(
                         {"_id": ObjectId(sellAll.id)},
                         {"$set": { "closePrice": closePrice, "soldAmount": position_soldAmount + sellAll.amount}}
                     )
+
                 elif (position_soldAmount + sellAll.amount) == position_amount or (position_soldAmount + sellAll.amount) > position_amount:
                     await position_collection.update_one(
                         {"_id": ObjectId(sellAll.id)},
