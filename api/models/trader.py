@@ -36,7 +36,7 @@ class Position(BaseModel):
     
     childType : str
     userID : str
-    amount : int
+    amount : int = 0
     soldAmount : int = 0
     exitDate : str = ""
     strikePrice : float

@@ -114,17 +114,23 @@ async def delete_trader(trader: DeleteTrader):
 @router.post("/addPosition")
 async def add_position(position: Position):
     try:
+        print("position: ", position)
         trader_collection = await get_database("traders")
-        trader = await trader_collection.find_one({"userID": position.userID})
+        trader = await trader_collection.find_one({"_id": ObjectId(position.userID)})
+        trader_amount = 0
         amount = 0
-        
+
+        print("trader: ", trader)
+
         if trader:
             trader_id = trader["_id"]
             trader_amount = trader["amount"]
-            if trader_amount < position.strikePrice:
+            print("trader_amount: ", trader_amount)
+            if trader_amount < position.entryPrice * 100:
                 raise HTTPException(status_code=404, detail="Insufficient balance")
             else :
-                amount = trader_amount / position.strikePrice
+                amount = int(trader_amount / (position.entryPrice * 100))
+                print("amount: ", amount)
         else:
             raise HTTPException(status_code=404, detail="User not found")
         position.amount = amount
@@ -160,6 +166,10 @@ async def add_position(position: Position):
             # Convert position to dict and add current time
             position_dict = position.model_dump()
             position_dict["created_at"] = datetime.now().isoformat()
+            await trader_collection.update_one(
+                {"_id": ObjectId(position.userID)},
+                {"$set": {"amount": trader_amount - amount * 100 * position.entryPrice}}
+            )
             
             # print("position: ", position_dict)
             result = await position_collection.insert_one(position_dict)
