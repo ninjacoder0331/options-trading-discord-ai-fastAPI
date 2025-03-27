@@ -48,6 +48,8 @@ class TraderUpdate(BaseModel):
     name : str
     password : str
     traderId : str
+    stopLoss : float
+    profitTaking : float
 
 @router.post("/updateTrader" , response_model=dict)
 async def update_trader(trader: TraderUpdate):
