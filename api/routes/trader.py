@@ -98,6 +98,24 @@ async def update_brokerage(brokerage: UpdateBrokerage):
         print(f"Error updating brokerage: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to update brokerage")
 
+class UpdateAnalyst(BaseModel):
+    traderId: str
+    analystId: str
+
+@router.post("/updateAnalyst")
+async def update_analyst(analyst: UpdateAnalyst):
+    try:
+        print("analyst: ", analyst)
+        trader_collection = await get_database("traders")
+        result = await trader_collection.update_one(
+            {"_id": ObjectId(analyst.traderId)},
+            {"$set": {"analyst": analyst.analystId}}
+        )
+        return {"message": "Analyst updated successfully"}
+    except Exception as e:
+        print(f"Error updating analyst: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to update analyst")
+    
 class DeleteTrader(BaseModel):
     traderId: str
 
@@ -143,8 +161,6 @@ async def add_position(position: Position):
             "symbol": position.orderSymbol,
             "qty": position.amount,
             "side": "buy",
-
-            
         }
 
         alpaca_api_key = os.getenv("ALPACA_API_KEY")
@@ -166,10 +182,10 @@ async def add_position(position: Position):
             # Convert position to dict and add current time
             position_dict = position.model_dump()
             position_dict["created_at"] = datetime.now().isoformat()
-            await trader_collection.update_one(
-                {"_id": ObjectId(position.userID)},
-                {"$set": {"amount": trader_amount - amount * 100 * position.entryPrice}}
-            )
+            # await trader_collection.update_one(
+            #     {"_id": ObjectId(position.userID)},
+            #     {"$set": {"amount": trader_amount - amount * 100 * position.entryPrice}}
+            # )
             
             # print("position: ", position_dict)
             result = await position_collection.insert_one(position_dict)
@@ -434,17 +450,17 @@ async def sell_all(sellAll: SellAll):
                 print("closePrice: ", closePrice)
                 print("userID: ", userID)
 
-                current_sold_usd_amount = sellAll.amount * closePrice * 100
-                trader_collection = await get_database("traders")
-                trader = await trader_collection.find_one({"_id": ObjectId(userID)})
-                trader_amount = trader["amount"]
-                trader_amount = trader_amount + current_sold_usd_amount
+                # current_sold_usd_amount = sellAll.amount * closePrice * 100
+                # trader_collection = await get_database("traders")
+                # trader = await trader_collection.find_one({"_id": ObjectId(userID)})
+                # trader_amount = trader["amount"]
+                # trader_amount = trader_amount + current_sold_usd_amount
 
-                print("trader_amount: ", trader_amount)
-                await trader_collection.update_one(
-                    {"_id": ObjectId(userID)},
-                    {"$set": {"amount": trader_amount}}
-                )
+                # print("trader_amount: ", trader_amount)
+                # await trader_collection.update_one(
+                #     {"_id": ObjectId(userID)},
+                #     {"$set": {"amount": trader_amount}}
+                # )
                 
                 # print("closePrice: ", closePrice)
                 # First get the current document to check if soldAmount exists
