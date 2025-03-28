@@ -101,6 +101,7 @@ async def update_brokerage(brokerage: UpdateBrokerage):
 class UpdateAnalyst(BaseModel):
     traderId: str
     analystId: str
+    analystNumber : int
 
 @router.post("/updateAnalyst")
 async def update_analyst(analyst: UpdateAnalyst):
@@ -109,7 +110,7 @@ async def update_analyst(analyst: UpdateAnalyst):
         trader_collection = await get_database("traders")
         result = await trader_collection.update_one(
             {"_id": ObjectId(analyst.traderId)},
-            {"$set": {"analyst": analyst.analystId}}
+            {"$set": {"analyst"+str(analyst.analystNumber): analyst.analystId}}
         )
         return {"message": "Analyst updated successfully"}
     except Exception as e:
@@ -128,6 +129,25 @@ async def delete_trader(trader: DeleteTrader):
     except Exception as e:
         print(f"Error deleting trader: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to delete trader")
+
+class Get_trader_analyst_class(BaseModel):
+    traderId: str
+
+@router.post("/getTraderAnalysts")
+async def get_trader_analysts(trader: Get_trader_analyst_class):
+    try:
+        print("traderId: ", trader)
+        print("traderAnalyst")
+
+        trader_collection = await get_database("traders")
+        trader = await trader_collection.find_one({"_id": ObjectId(trader.traderId)})
+        print("trader: ", trader)
+        if trader:
+            trader["_id"] = str(trader["_id"])
+        return trader
+    except Exception as e:
+        print(f"Error getting trader analysts: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to get trader analysts")
 
 @router.post("/addPosition")
 async def add_position(position: Position):
@@ -241,7 +261,7 @@ class TraderClosePositions(BaseModel):
 
 @router.post("/getTraderClosePositions")
 async def get_trader_close_positions(traderId: TraderClosePositions):
-    print("traderId: ", traderId.traderId)
+    # print("traderId: ", traderId.traderId)
     result = await get_position_status_by_traderId("close", traderId.traderId)
     return result
 
