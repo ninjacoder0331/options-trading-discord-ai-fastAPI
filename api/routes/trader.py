@@ -8,6 +8,7 @@ from datetime import datetime
 import requests
 import json
 from dotenv import load_dotenv
+from ..routes.utils import parse_option_date, check_option_expiry
 
 load_dotenv()
 
@@ -70,11 +71,11 @@ async def get_analysts():
     try:
         analyst_collection = await get_database("analyst")
         analysts = await analyst_collection.find().to_list(1000)
-        
+
         # Convert ObjectId to string for JSON serialization
         for analyst in analysts:
             analyst["_id"] = str(analyst["_id"])
-                
+
         return analysts
     except Exception as e:
         print(f"Error fetching analysts: {str(e)}")
@@ -83,7 +84,7 @@ async def get_analysts():
 class UpdateBrokerage(BaseModel):
     traderId: str
     brokerageName : str
-    
+
 
 @router.post("/updateBrokerage")
 async def update_brokerage(brokerage: UpdateBrokerage):
@@ -345,6 +346,15 @@ async def get_position_status(position):
             if "created_at" in position:
                 position["created_at"] = position["created_at"]
             if position['orderSymbol'] != '' and position['status'] == "open":
+                month, date = parse_option_date(position['orderSymbol'])
+                is_valid_option = check_option_expiry(month, date)
+                if not is_valid_option:
+                    await position_collection.update_one(
+                        {"_id": ObjectId(position["_id"])},
+                        {"$set": {"status": "close"}}
+                    )
+                    break
+
 
                 alpaca_api_key = os.getenv("ALPACA_API_KEY")
                 alpaca_secret_key = os.getenv("ALPACA_SECRET_KEY")
