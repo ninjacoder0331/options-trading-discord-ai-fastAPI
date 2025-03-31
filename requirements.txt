@@ -15,6 +15,8 @@ pymongo>=4.6.0
 motor>=3.3.0
 
 requests == 2.32.3
+pytz
+apscheduler
 
 # tradestation
 # ts-api
