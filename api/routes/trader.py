@@ -137,12 +137,12 @@ class Get_trader_analyst_class(BaseModel):
 @router.post("/getTraderAnalysts")
 async def get_trader_analysts(trader: Get_trader_analyst_class):
     try:
-        print("traderId: ", trader)
-        print("traderAnalyst")
+        # print("traderId: ", trader)
+        # print("traderAnalyst")
 
         trader_collection = await get_database("traders")
         trader = await trader_collection.find_one({"_id": ObjectId(trader.traderId)})
-        print("trader: ", trader)
+        # print("trader: ", trader)
         if trader:
             trader["_id"] = str(trader["_id"])
         return trader
@@ -286,7 +286,13 @@ async def get_position_status_by_traderId(position, traderId):
             position["_id"] = str(position["_id"])
             # Convert datetime to string if it exists
             if "created_at" in position:
-                position["created_at"] = position["created_at"]
+                current_time = datetime.now()
+                # Convert ISO format string to datetime object
+                created_at = datetime.fromisoformat(position["created_at"].replace('Z', '+00:00'))
+                # Calculate difference in minutes
+                difference = int((current_time - created_at).total_seconds() / 60)
+                print("difference in minutes: ", difference)
+                position["timeDifference"] = difference
             if position['orderSymbol'] != '' and position['status'] == "open":
 
                 alpaca_api_key = os.getenv("ALPACA_API_KEY")
