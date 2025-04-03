@@ -36,6 +36,8 @@ async def create_trader(trader: TraderCreate, request: Request):
         trader_dict["user_id"] = str(ObjectId())
         trader_dict["created_at"] = datetime.now().isoformat()
         trader_dict["status"] = "start"
+        trader_dict["stopLoss"] = 0
+        trader_dict["profitTaking"] = 0
         result = await trader_collection.insert_one(trader_dict)
         return {"id": str(result.inserted_id)}
         
@@ -54,13 +56,13 @@ class TraderUpdate(BaseModel):
 @router.post("/updateTrader" , response_model=dict)
 async def update_trader(trader: TraderUpdate):
     try:
-        print("trader: ", trader)
+        # print("trader: ", trader)
         trader_collection = await get_database("traders")
         result = await trader_collection.update_one(
             {"_id": ObjectId(trader.traderId)},
             {"$set": trader.model_dump()}
         )
-        print("result: ", result)
+        # print("result: ", result)
         return {"message": "Trader updated successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

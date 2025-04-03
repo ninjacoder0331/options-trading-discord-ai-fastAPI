@@ -9,6 +9,7 @@ import requests
 import json
 from dotenv import load_dotenv
 from ..routes.utils import parse_option_date, check_option_expiry
+import time
 
 load_dotenv()
 
@@ -153,7 +154,7 @@ async def get_trader_analysts(trader: Get_trader_analyst_class):
 @router.post("/addPosition")
 async def add_position(position: Position):
     try:
-        print("position: ", position)
+        # print("position: ", position)
         trader_collection = await get_database("traders")
         trader = await trader_collection.find_one({"_id": ObjectId(position.userID)})
         trader_amount = 0
@@ -164,12 +165,12 @@ async def add_position(position: Position):
         if trader:
             trader_id = trader["_id"]
             trader_amount = trader["amount"]
-            print("trader_amount: ", trader_amount)
+            # print("trader_amount: ", trader_amount)
             if trader_amount < position.entryPrice * 100:
                 raise HTTPException(status_code=404, detail="Insufficient balance")
             else :
                 amount = int(trader_amount / (position.entryPrice * 100))
-                print("amount: ", amount)
+                # print("amount: ", amount)
         else:
             raise HTTPException(status_code=404, detail="User not found")
         position.amount = amount
@@ -192,7 +193,32 @@ async def add_position(position: Position):
                     "APCA-API-KEY-ID": alpaca_api_key,
                     "APCA-API-SECRET-KEY": alpaca_secret_key
                 }
+        
+        check_url = f"https://data.alpaca.markets/v1beta1/options/snapshots?symbols={position.orderSymbol}&feed=indicative&limit=100"
 
+        response = requests.get(check_url, headers=headers)
+        response_json = response.json()
+        # print(response_json)
+        bidPrice = response_json["snapshots"][position.orderSymbol]["latestQuote"]["ap"]
+
+        times = 3
+        while times > 0:
+            if bidPrice - position.entryPrice > position.entryPrice * 0.08:
+                response = requests.get(check_url, headers=headers)
+                response_json = response.json()
+                # print(response_json)
+                bidPrice = response_json["snapshots"][position.orderSymbol]["latestQuote"]["ap"]
+                print("bidPrice: ", bidPrice)
+            else :
+                break;
+            if times == 0:
+                return 201
+            else :
+                times -= 1
+                time.sleep(5)
+                print("times: ", times)
+              # Using time.sleep() instead of asyncio.sleep()
+        position.entryPrice = bidPrice
         print("payload: ", payload)
         response = requests.post(url, json=payload, headers=headers)
         print("response: ", response.status_code)
@@ -279,7 +305,7 @@ async def get_position_status_by_traderId(position, traderId):
         position_collection = await get_database("positions")
         positions = await position_collection.find({"status": position, "userID": traderId}).to_list(1000)
         if not positions:
-            print("No open positions found")
+            # print("No open positions found")
             positions = []
 
         for position in positions:
@@ -291,7 +317,7 @@ async def get_position_status_by_traderId(position, traderId):
                 created_at = datetime.fromisoformat(position["created_at"].replace('Z', '+00:00'))
                 # Calculate difference in minutes
                 difference = int((current_time - created_at).total_seconds() / 60)
-                print("difference in minutes: ", difference)
+                # print("difference in minutes: ", difference)
                 position["timeDifference"] = difference
             if position['orderSymbol'] != '' and position['status'] == "open":
 
@@ -371,13 +397,13 @@ async def get_position_status(position):
                             "APCA-API-SECRET-KEY": alpaca_secret_key
                         }
                 
-                print("headers: ", headers)
-                print("position['orderSymbol']: ", position['orderSymbol'])
+                # print("headers: ", headers)
+                # print("position['orderSymbol']: ", position['orderSymbol'])
 
                 # url = f"https://data.alpaca.markets/v1beta1/options/quotes/latest?symbols={position['orderSymbol']}&feed=indicative"
                 url = f"https://data.alpaca.markets/v1beta1/options/quotes/latest?symbols={position['orderSymbol']}"
                 response = requests.get(url, headers=headers)
-                print("response: ", response.text)
+                # print("response: ", response.text)
                 # if position == "open":
                 result = get_bid_price(response.text, position['orderSymbol'])
                 position['currentPrice'] = result
@@ -440,8 +466,8 @@ async def sell_all(sellAll: SellAll):
                 orderSymbol = position["orderSymbol"]
             else:
                 raise ValueError(f"No position found with ID: {sellAll.id}")
-            print("orderSymbol: ", orderSymbol)
-            print("position: ", position)
+            # print("orderSymbol: ", orderSymbol)
+            # print("position: ", position)
 
             position_amount = position.get("amount")
             position_soldAmount = position.get("soldAmount")
@@ -458,7 +484,7 @@ async def sell_all(sellAll: SellAll):
                 "side": "sell",
             }
 
-            print("payload" , payload)
+            # print("payload" , payload)
             
             headers = {
                         "accept": "application/json",
@@ -473,8 +499,8 @@ async def sell_all(sellAll: SellAll):
             # print("headers: ", headers)
             # print("url: ", url)
             response = requests.post(url, json=payload, headers=headers)
-            print("response_status_code: ", response.status_code)
-            print("response: ", response.json())
+            # print("response_status_code: ", response.status_code)
+            # print("response: ", response.json())
             if(response.status_code == 200):
 
                 print("orderSymbol: ", orderSymbol)
