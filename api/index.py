@@ -85,7 +85,7 @@ scheduler = AsyncIOScheduler()
 async def check_open_positions():
     return "Checking open positions"
 
-async def check_stoploss_profit(position_id, option_symbol, entry_price, user_id, left_amount):
+async def check_stoploss_profit(position_id, option_symbol, entry_price, user_id, total_amount, sold_amount):
     
     api_key = os.getenv("ALPACA_API_KEY")
     api_secret = os.getenv("ALPACA_SECRET_KEY")
@@ -124,7 +124,7 @@ async def check_stoploss_profit(position_id, option_symbol, entry_price, user_id
                         open_position["status"] = "closed"
                         await position_collection.update_one({"_id": ObjectId(open_position["_id"])}, {"$set": {"status": "closed"}})
 
-                    await auto_sell_options(option_symbol , left_amount)
+                    await auto_sell_options(option_symbol , total_amount , sold_amount , position_id)
                 except Exception as e:
                     print(f"Error in stoploss check: {e}")
             
@@ -140,7 +140,7 @@ async def check_stoploss_profit(position_id, option_symbol, entry_price, user_id
                         open_position["status"] = "closed"
                         await position_collection.update_one({"_id": ObjectId(open_position["_id"])}, {"$set": {"status": "closed"}})
 
-                    await auto_sell_options(option_symbol , left_amount)
+                    await auto_sell_options(option_symbol , total_amount , sold_amount , position_id)
                 except Exception as e:
                     print(f"Error in profit check: {e}")
     return "Checking stoploss and profit"
@@ -171,7 +171,7 @@ async def check_market_time():
     is_market_open = market_open <= current_time <= market_close
     return is_market_open
 
-async def auto_sell_options(option_symbol , left_amount):
+async def auto_sell_options(option_symbol , total_amount , sold_amount , position_id):
     try:
         api_key = os.getenv("ALPACA_API_KEY")
         api_secret = os.getenv("ALPACA_SECRET_KEY")
@@ -186,16 +186,22 @@ async def auto_sell_options(option_symbol , left_amount):
             "type": "market",
             "time_in_force": "day",
             "symbol": option_symbol,
-            "qty": left_amount,
+            "qty": total_amount - sold_amount,
             "side": "sell",
         }
         response = requests.post(url, headers=headers, json=payload)
+
+        position_collection = await get_database("positions")
+        current_date = datetime.now(ZoneInfo("America/New_York")).date()
+        await position_collection.update_one({"_id": ObjectId(position_id)}, {"$set": {"status": "closed"}})
+        await position_collection.update_one({"_id": ObjectId(position_id)}, {"$set": {"soldAmount": total_amount}})
+        await position_collection.update_one({"_id": ObjectId(position_id)}, {"$set": {"exitDate": current_date}})
         return response.json()
     except Exception as e:
         print(f"Error in auto sell options: {e}")
             
 
-async def check_date_expired(option_symbol , left_amount):
+async def check_date_expired(option_symbol , total_amount , sold_amount , position_id):
     try:
         print("options symbol" , option_symbol)
         month, date = parse_option_date(option_symbol)
@@ -216,7 +222,7 @@ async def check_date_expired(option_symbol , left_amount):
         # Check if current time is on expiration date and 40 minutes before close
         if current_time.date() == expiration_date.date() and current_time >= expiration_date:
             print(f"Option {option_symbol} is 40 minutes before market close on expiration date")
-            await auto_sell_options(option_symbol , left_amount)
+            await auto_sell_options(option_symbol , total_amount , sold_amount , position_id)
             return True
         else:
             print(f"Current time: {current_time.strftime('%Y-%m-%d %H:%M:%S')}")
@@ -240,9 +246,9 @@ async def check_funtion():
 
         if open_positions:
             for position in open_positions:
-                await check_date_expired(position["orderSymbol"] , position["amount"] - position["soldAmount"])
+                await check_date_expired(position["orderSymbol"] , position["amount"] , position["soldAmount"] , position["_id"])
                 left_amount = position["amount"] - position["soldAmount"]
-                await check_stoploss_profit(position["_id"] , position["orderSymbol"] , position["entryPrice"] , position["userID"] , left_amount)
+                await check_stoploss_profit(position["_id"] , position["orderSymbol"] , position["entryPrice"] , position["userID"] , position["amount"] , position["soldAmount"])
             
         else:
             print("No open positions")
