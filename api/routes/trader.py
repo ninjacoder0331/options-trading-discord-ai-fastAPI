@@ -203,7 +203,7 @@ async def add_position(position: Position):
 
         times = 3
         while times > 0:
-            if bidPrice - position.entryPrice > position.entryPrice * 0.08:
+            if bidPrice - position.entryPrice > position.entryPrice * 0.04:
                 response = requests.get(check_url, headers=headers)
                 response_json = response.json()
                 # print(response_json)
