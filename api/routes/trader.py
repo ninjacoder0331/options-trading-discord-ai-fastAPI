@@ -201,23 +201,30 @@ async def add_position(position: Position):
         # print(response_json)
         bidPrice = response_json["snapshots"][position.orderSymbol]["latestQuote"]["ap"]
 
-        times = 3
-        while times > 0:
-            if bidPrice - position.entryPrice > position.entryPrice * 0.04:
-                response = requests.get(check_url, headers=headers)
-                response_json = response.json()
-                # print(response_json)
-                bidPrice = response_json["snapshots"][position.orderSymbol]["latestQuote"]["ap"]
-                print("bidPrice: ", bidPrice)
-            else :
-                break;
-            if times == 0:
-                return 201
-            else :
-                times -= 1
-                time.sleep(5)
-                print("times: ", times)
-              # Using time.sleep() instead of asyncio.sleep()
+        askPrice = response_json["snapshots"][position.orderSymbol]["latestQuote"]["bp"]
+
+        if abs(bidPrice - askPrice) < position.entryPrice * 0.04:
+            position.entryPrice = bidPrice
+        else :
+            position.entryPrice = askPrice
+
+            times = 3
+            while times > 0:
+                if position.entryPrice - bidPrice > position.entryPrice * (-0.02):
+                    response = requests.get(check_url, headers=headers)
+                    response_json = response.json()
+                    # print(response_json)
+                    bidPrice = response_json["snapshots"][position.orderSymbol]["latestQuote"]["ap"]
+                    print("bidPrice: ", bidPrice)
+                else :
+                    break;
+                if times == 0:
+                    return 201
+                else :
+                    times -= 1
+                    time.sleep(5)
+                    print("times: ", times)
+                # Using time.sleep() instead of asyncio.sleep()
         position.entryPrice = bidPrice
         print("payload: ", payload)
         response = requests.post(url, json=payload, headers=headers)
