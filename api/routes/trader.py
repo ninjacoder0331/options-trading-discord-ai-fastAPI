@@ -36,37 +36,6 @@ async def get_traders():
         traders = []
         return traders
 
-# class Position(BaseModel):
-#     email: str
-#     symbol: str
-#     date: str
-#     optionType: str
-
-# @router.post("/addPosition")
-# async def update_trader(Position: Position):
-#     try:
-#         print("Position: ", Position)
-#         trader_collection = await get_database("traders")
-#         result = await trader_collection.find_one(
-#             {"email": Position.email},
-#         )
-#         id = result["_id"]
-#         print("id: ", id)
-
-#         position_collection = await get_database("positions")
-#         result = await position_collection.insert_one(
-#             {"id": id, "email": Position.email, "symbol": Position.symbol, "date": Position.date, "optionType": Position.optionType}
-#         )
-
-#         print("result: ", result)
-#         # print("account: ", account)
-        
-#         return {"message": "Position added successfully"}
-#     except Exception as e:
-#         print(f"Error adding position: {str(e)}")
-#         raise HTTPException(status_code=500, detail="Failed to add position")
-
-
 @router.get("/getAnalysts")
 async def get_analysts():
     try:
@@ -185,8 +154,12 @@ async def add_position(position: Position):
             "side": "buy",
         }
 
-        alpaca_api_key = os.getenv("ALPACA_API_KEY")
-        alpaca_secret_key = os.getenv("ALPACA_SECRET_KEY")
+        # alpaca_api_key = os.getenv("ALPACA_API_KEY")
+        # alpaca_secret_key = os.getenv("ALPACA_SECRET_KEY")
+        alpaca_api_key = trader["API_KEY"]
+        alpaca_secret_key = trader["SECRET_KEY"]
+        if(alpaca_api_key == "" or alpaca_secret_key == ""):
+            return 429
         headers = {
                     "accept": "application/json",
                     "content-type": "application/json",
@@ -296,7 +269,7 @@ class TraderClosePositions(BaseModel):
 @router.post("/getTraderClosePositions")
 async def get_trader_close_positions(traderId: TraderClosePositions):
     # print("traderId: ", traderId.traderId)
-    result = await get_position_status_by_traderId("close", traderId.traderId)
+    result = await get_position_status_by_traderId("closed", traderId.traderId)
     return result
 
 class TraderOpenPositions(BaseModel):
@@ -363,7 +336,7 @@ async def get_position_status_by_traderId(position, traderId):
 
 @router.get("/getClosePositions")
 async def get_closed_positions():
-    result = await get_position_status("close")
+    result = await get_position_status("closed")
     return result
 
 
@@ -374,6 +347,8 @@ async def get_position_status(position):
         positions = await position_collection.find(
             {"status": position}
         ).to_list(1000)
+
+        print("positions: ", positions)
 
         if not positions:
             print("No open positions found")
@@ -390,7 +365,7 @@ async def get_position_status(position):
                 if not is_valid_option:
                     await position_collection.update_one(
                         {"_id": ObjectId(position["_id"])},
-                        {"$set": {"status": "close"}}
+                        {"$set": {"status": "closed"}}
                     )
                     break
 
@@ -480,8 +455,13 @@ async def sell_all(sellAll: SellAll):
             position_soldAmount = position.get("soldAmount")
             userID = position.get("userID")
 
-            alpaca_api_key = os.getenv("ALPACA_API_KEY")
-            alpaca_secret_key = os.getenv("ALPACA_SECRET_KEY")
+            trader_collection = await get_database("traders")
+            trader = await trader_collection.find_one({"_id": ObjectId(userID)})
+            alpaca_api_key = trader.get("API_KEY")
+            alpaca_secret_key = trader.get("SECRET_KEY")
+
+            # alpaca_api_key = os.getenv("ALPACA_API_KEY")
+            # alpaca_secret_key = os.getenv("ALPACA_SECRET_KEY")
             
             payload = {
                 "type": "market",
@@ -490,9 +470,7 @@ async def sell_all(sellAll: SellAll):
                 "qty":  sellAll.amount,
                 "side": "sell",
             }
-
             # print("payload" , payload)
-            
             headers = {
                         "accept": "application/json",
                         "content-type": "application/json",
@@ -542,7 +520,7 @@ async def sell_all(sellAll: SellAll):
                 elif (position_soldAmount + sellAll.amount) == position_amount or (position_soldAmount + sellAll.amount) > position_amount:
                     await position_collection.update_one(
                         {"_id": ObjectId(sellAll.id)},
-                        {"$set": {"status": "close", "closePrice": closePrice, "soldAmount": position_amount, "exitDate": datetime.now().isoformat()}}
+                        {"$set": {"status": "closed", "closePrice": closePrice, "soldAmount": position_amount, "exitDate": datetime.now().isoformat()}}
                     )
                 
                 
