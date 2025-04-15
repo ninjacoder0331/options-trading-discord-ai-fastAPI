@@ -37,12 +37,16 @@ async def create_trader(trader: TraderCreate, request: Request):
         trader_dict["created_at"] = datetime.now().isoformat()
         trader_dict["status"] = "start"
         trader_dict["stopLoss"] = 0
+        trader_dict["brokerageName"] = ""
+        trader_dict["API_KEY"] = ""
+        trader_dict["SECRET_KEY"] = ""
         trader_dict["profitTaking"] = 0
         result = await trader_collection.insert_one(trader_dict)
         return {"id": str(result.inserted_id)}
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 class TraderUpdate(BaseModel):
     email: str
@@ -67,6 +71,51 @@ async def update_trader(trader: TraderUpdate):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+class BrokerageTrader(BaseModel):
+    traderId: str
+    brokerageName: str
+    API_KEY: str
+    SECRET_KEY: str
+
+@router.post("/updateBrokerageTrader")
+async def update_brokerage_trader(trader: BrokerageTrader):
+    try:
+        trader_collection = await get_database("traders")
+        print("trader: ", trader)
+        result = await trader_collection.update_one(
+            {"_id": ObjectId(trader.traderId)},
+            {"$set": {"brokerageName": trader.brokerageName, "API_KEY": trader.API_KEY, "SECRET_KEY": trader.SECRET_KEY}}
+        )
+        return {"message": "Brokerage trader updated successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/traderSignup")
+async def traderSignup(trader: TraderUpdate):
+    try:
+
+        trader_collection = await get_database("traders")
+        existing_trader = await trader_collection.find_one({"email": trader.email})
+        if existing_trader:
+            raise HTTPException(
+                status_code=400,
+                detail="User already exists"
+            )
+        
+        trader_dict = trader.model_dump()
+        trader_dict["password"] = trader_dict["password"]  # Store password directly
+        trader_dict["user_id"] = str(ObjectId())
+        trader_dict["created_at"] = datetime.now().isoformat()
+        trader_dict["status"] = "start"
+        trader_dict["brokerageName"] = ""
+        trader_dict["API_KEY"] = ""
+        trader_dict["SECRET_KEY"] = ""
+        trader_dict["role"] = "trader"
+        
+        result = await trader_collection.insert_one(trader_dict)
+        return {"message": "Trader created successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 class SignInRequest(BaseModel):
     email: str
     password: str
