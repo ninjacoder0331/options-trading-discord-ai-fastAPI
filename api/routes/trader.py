@@ -380,11 +380,11 @@ async def get_position_status_by_traderId(position, traderId):
 
 @router.get("/getClosePositions")
 async def get_closed_positions():
-    result = await get_position_status("closed")
+    result = await get_position_status_closed("closed")
     return result
 
 
-async def get_position_status(position):
+async def get_position_status_closed(position):
     try:
         # Get positions data
         position_collection = await get_database("positions")
@@ -397,9 +397,51 @@ async def get_position_status(position):
         if not positions:
             print("No open positions found")
             positions = []
-
         for position in positions:
             position["_id"] = str(position["_id"])
+            
+            # Convert datetime to string if it exists
+            if "created_at" in position:
+                position["created_at"] = position["created_at"]
+            if position['orderSymbol'] != '' and position['status'] == "open":
+                month, date = parse_option_date(position['orderSymbol'])
+                is_valid_option = check_option_expiry(month, date)
+                if not is_valid_option:
+                    await position_collection.update_one(
+                        {"_id": ObjectId(position["_id"])},
+                        {"$set": {"status": "closed"}}
+                    )
+                    break
+
+        return {
+            "positions": positions
+        }
+    except Exception as e:
+        print(f"Error fetching trader data: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to fetch trader data")
+
+
+async def get_position_status(position):
+    try:
+        # Get positions data
+        position_collection = await get_database("positions")
+        positions = await position_collection.find(
+            {"status": position}
+        ).to_list(1000)
+
+        print("positions: ", positions)
+        trader_collection = await get_database("traders")
+
+
+        if not positions:
+            print("No open positions found")
+            positions = []
+        for position in positions:
+            position["_id"] = str(position["_id"])
+            trader = await trader_collection.find_one({"_id": ObjectId(position.get("userID"))})
+            alpaca_api_key = trader["API_KEY"]
+            alpaca_secret_key = trader["SECRET_KEY"]
+            
             # Convert datetime to string if it exists
             if "created_at" in position:
                 position["created_at"] = position["created_at"]
@@ -414,8 +456,8 @@ async def get_position_status(position):
                     break
 
 
-                alpaca_api_key = os.getenv("ALPACA_API_KEY")
-                alpaca_secret_key = os.getenv("ALPACA_SECRET_KEY")
+                alpaca_api_key = trader["API_KEY"]
+                alpaca_secret_key = trader["SECRET_KEY"]
                 headers = {
                             "accept": "application/json",
                             "content-type": "application/json",
@@ -429,7 +471,8 @@ async def get_position_status(position):
                 # url = f"https://data.alpaca.markets/v1beta1/options/quotes/latest?symbols={position['orderSymbol']}&feed=indicative"
                 url = f"https://data.alpaca.markets/v1beta1/options/quotes/latest?symbols={position['orderSymbol']}"
                 response = requests.get(url, headers=headers)
-                # print("response: ", response.text)
+                print("response bid price: ", response.text)
+                
                 # if position == "open":
                 result = get_bid_price(response.text, position['orderSymbol'])
                 position['currentPrice'] = result
