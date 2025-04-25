@@ -76,6 +76,7 @@ class BrokerageTrader(BaseModel):
     brokerageName: str
     API_KEY: str
     SECRET_KEY: str
+    liveTrading: bool
 
 @router.post("/updateBrokerageTrader")
 async def update_brokerage_trader(trader: BrokerageTrader):
@@ -84,7 +85,7 @@ async def update_brokerage_trader(trader: BrokerageTrader):
         print("trader: ", trader)
         result = await trader_collection.update_one(
             {"_id": ObjectId(trader.traderId)},
-            {"$set": {"brokerageName": trader.brokerageName, "API_KEY": trader.API_KEY, "SECRET_KEY": trader.SECRET_KEY}}
+            {"$set": {"brokerageName": trader.brokerageName, "API_KEY": trader.API_KEY, "SECRET_KEY": trader.SECRET_KEY, "liveTrading": trader.liveTrading}}
         )
         return {"message": "Brokerage trader updated successfully"}
     except Exception as e:

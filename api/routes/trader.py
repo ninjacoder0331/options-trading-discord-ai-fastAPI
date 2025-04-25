@@ -10,6 +10,7 @@ import json
 from dotenv import load_dotenv
 from ..routes.utils import parse_option_date, check_option_expiry
 import time
+import asyncio
 
 load_dotenv()
 
@@ -126,10 +127,13 @@ async def add_position(position: Position):
         # print("position: ", position)
         trader_collection = await get_database("traders")
         trader = await trader_collection.find_one({"_id": ObjectId(position.userID)})
+        check_live_trading = trader["liveTrading"]
+        print("check_live_trading: ", check_live_trading)
+        paper_url = os.getenv("PAPER_URL")
         trader_amount = 0
         amount = 0
 
-        print("trader: ", trader)
+        # print("trader: ", trader)
 
         if trader:
             trader_id = trader["_id"]
@@ -145,7 +149,10 @@ async def add_position(position: Position):
         position.amount = amount
         position_collection = await get_database("positions")
 
-        url = "https://paper-api.alpaca.markets/v2/orders"
+        if check_live_trading == True:
+            url = "https://api.alpaca.markets/v2/orders"
+        else:
+            url = f"{paper_url}/v2/orders"
         payload = {
             "type": "market",
             "time_in_force": "day",
@@ -153,6 +160,8 @@ async def add_position(position: Position):
             "qty": position.amount,
             "side": "buy",
         }
+
+        print("payload: ", payload)
 
         # alpaca_api_key = os.getenv("ALPACA_API_KEY")
         # alpaca_secret_key = os.getenv("ALPACA_SECRET_KEY")
@@ -199,23 +208,61 @@ async def add_position(position: Position):
                     print("times: ", times)
                 # Using time.sleep() instead of asyncio.sleep()
         position.entryPrice = bidPrice
-        print("payload: ", payload)
+        # print("payload: ", payload)
+        print("url: ", url)
+        print("headers: ", headers)
         response = requests.post(url, json=payload, headers=headers)
-        print("response: ", response.status_code)
+        tradingId = response.json()["id"]
+        # print("response: ", response.status_code)
 
-        if response.status_code == 200:
-            print("Success!")
+        if response.status_code == 200 and tradingId != "":
+            await asyncio.sleep(2)
+            if check_live_trading == True:
+                url2 = "https://api.alpaca.markets/v2/orders?status=all&symbols="+position.orderSymbol
+            else:
+                url2 = "https://paper-api.alpaca.markets/v2/orders?status=all&symbols="+position.orderSymbol
+            
+            response2 = requests.get(url2, headers=headers)
+            for order in response2.json():
+                # print("*")
+                if order["id"] == tradingId:
+                    # print("--------------------" , tradingId)
+                    price = order["filled_avg_price"]
+                    buy_quantity = order["filled_qty"]
+                    entrytimestamp = order["filled_at"]
+                    entry_price = price  # This will now update the global variable
+                    # print("*********************" , price ," entrytimestamp " , entrytimestamp)
+                    
+                    print("buy order is excuted" , entry_price)
+                    # print("history data" , history_data)
+                    position_dict = {}
+                    position_dict["symbol"] = position.orderSymbol
+                    position_dict["orderSymbol"] = position.orderSymbol
+                    position_dict["quantity"] = buy_quantity
+                    position_dict["analyst"] = position.analyst
+                    position_dict["side"] = position.side
+                    position_dict["orderType"] = position.orderType
+                    position_dict["timeInForce"] = position.timeInForce
+                    position_dict["date"] = position.date
+                    position_dict["entryPrice"] = entry_price
+                    position_dict["childType"] = position.childType
+                    position_dict["userID"] = position.userID
+                    position_dict["amount"] = position.amount
+                    position_dict["soldAmount"] = 0
+                    position_dict["exitDate"] = position.exitDate
+                    position_dict["strikePrice"] = position.strikePrice
+                    position_dict["tradingId"] = tradingId
+                    position_dict["status"] = "open"
+                    position_dict["closePrice"] = 0
+                    position_dict["entryDate"] = entrytimestamp
+                    position_dict["created_at"] = datetime.now().isoformat()
+                    
+                    await position_collection.insert_one(position_dict)
+                    break;
              
             # Convert position to dict and add current time
-            position_dict = position.model_dump()
-            position_dict["created_at"] = datetime.now().isoformat()
-            # await trader_collection.update_one(
-            #     {"_id": ObjectId(position.userID)},
-            #     {"$set": {"amount": trader_amount - amount * 100 * position.entryPrice}}
-            # )
             
-            # print("position: ", position_dict)
-            result = await position_collection.insert_one(position_dict)
+
             return 200
         else:
             print(f"Unexpected status code: {response.status_code}")
@@ -283,10 +330,14 @@ async def get_trader_open_positions(traderId: TraderOpenPositions):
 async def get_position_status_by_traderId(position, traderId):
     try:
         position_collection = await get_database("positions")
+        trader_collection = await get_database("traders")
+        trader = await trader_collection.find_one({"_id": ObjectId(traderId)})
+        check_live_trading = trader["liveTrading"]
         positions = await position_collection.find({"status": position, "userID": traderId}).to_list(1000)
         if not positions:
             # print("No open positions found")
             positions = []
+
 
         for position in positions:
             position["_id"] = str(position["_id"])
@@ -301,8 +352,8 @@ async def get_position_status_by_traderId(position, traderId):
                 position["timeDifference"] = difference
             if position['orderSymbol'] != '' and position['status'] == "open":
 
-                alpaca_api_key = os.getenv("ALPACA_API_KEY")
-                alpaca_secret_key = os.getenv("ALPACA_SECRET_KEY")
+                alpaca_api_key = trader["API_KEY"]
+                alpaca_secret_key = trader["SECRET_KEY"]
                 headers = {
                             "accept": "application/json",
                             "content-type": "application/json",
@@ -310,23 +361,16 @@ async def get_position_status_by_traderId(position, traderId):
                             "APCA-API-SECRET-KEY": alpaca_secret_key
                         }
                 
-                print("headers: ", headers)
-                print("position['orderSymbol']: ", position['orderSymbol'])
+                # print("headers: ", headers)
+                # print("position['orderSymbol']: ", position['orderSymbol'])
 
                 # url = f"https://data.alpaca.markets/v1beta1/options/quotes/latest?symbols={position['orderSymbol']}&feed=indicative"
                 url = f"https://data.alpaca.markets/v1beta1/options/quotes/latest?symbols={position['orderSymbol']}"
                 response = requests.get(url, headers=headers)
-                print("response: ", response.text)
+                # print("response: ", response.text)
                 # if position == "open":
                 result = get_bid_price(response.text, position['orderSymbol'])
                 position['currentPrice'] = result
-                # else:
-                #     result = get_ask_price(response.text, position['orderSymbol'])
-                
-                # print(position['currentPrice'])
-                # print("response: ", response.text).
-        
-        # Return combined data
         return {
             "positions": positions
         }
@@ -439,9 +483,7 @@ class SellAll(BaseModel):
 async def sell_all(sellAll: SellAll):
     try:
         position_collection = await get_database("positions")
-        # Update the status from "open" to "close" where _id matches
         try:
-            # print("sellAll.id: ", sellAll.id)
             position = await position_collection.find_one({"_id": ObjectId(sellAll.id)})
             orderSymbol = ""
             if position:
@@ -459,9 +501,9 @@ async def sell_all(sellAll: SellAll):
             trader = await trader_collection.find_one({"_id": ObjectId(userID)})
             alpaca_api_key = trader.get("API_KEY")
             alpaca_secret_key = trader.get("SECRET_KEY")
+            check_live_trading = trader.get("liveTrading")
 
-            # alpaca_api_key = os.getenv("ALPACA_API_KEY")
-            # alpaca_secret_key = os.getenv("ALPACA_SECRET_KEY")
+            paper_url = os.getenv("PAPER_URL")
             
             payload = {
                 "type": "market",
@@ -477,53 +519,44 @@ async def sell_all(sellAll: SellAll):
                         "APCA-API-KEY-ID": alpaca_api_key,
                         "APCA-API-SECRET-KEY": alpaca_secret_key
                     }
-            url = "https://paper-api.alpaca.markets/v2/orders"
+            if check_live_trading == True:
+                url = "https://api.alpaca.markets/v2/orders"
+            else:
+                url = f"{paper_url}/v2/orders"
 
-            # print("url: ", url)
-            # print("payload: ", payload)
-            # print("headers: ", headers)
-            # print("url: ", url)
             response = requests.post(url, json=payload, headers=headers)
-            # print("response_status_code: ", response.status_code)
-            # print("response: ", response.json())
+            print("response: ", response.json())
+            tradingId = response.json()["id"]
+
             if(response.status_code == 200):
-
-                print("orderSymbol: ", orderSymbol)
-                url = f"https://data.alpaca.markets/v1beta1/options/quotes/latest?symbols={orderSymbol}"
+                await asyncio.sleep(3)
+                if check_live_trading == True:
+                    url = "https://api.alpaca.markets/v2/orders?status=all&symbols="+orderSymbol
+                else:   
+                    url = "https://paper-api.alpaca.markets/v2/orders?status=all&symbols="+orderSymbol
+                # print("orderSymbol: ", orderSymbol)
                 response = requests.get(url, headers=headers)
-                print("response: ", response.text)
-                closePrice = get_bid_price(response.text, orderSymbol)
-
-                print("closePrice: ", closePrice)
-                print("userID: ", userID)
-
-                # current_sold_usd_amount = sellAll.amount * closePrice * 100
-                # trader_collection = await get_database("traders")
-                # trader = await trader_collection.find_one({"_id": ObjectId(userID)})
-                # trader_amount = trader["amount"]
-                # trader_amount = trader_amount + current_sold_usd_amount
-
-                # print("trader_amount: ", trader_amount)
-                # await trader_collection.update_one(
-                #     {"_id": ObjectId(userID)},
-                #     {"$set": {"amount": trader_amount}}
-                # )
+                # print("response: ", response.text)
                 
-                # print("closePrice: ", closePrice)
-                # First get the current document to check if soldAmount exists
-                if (position_soldAmount + sellAll.amount) < position_amount:
-                    await position_collection.update_one(
-                        {"_id": ObjectId(sellAll.id)},
-                        {"$set": { "closePrice": closePrice, "soldAmount": position_soldAmount + sellAll.amount}}
-                    )
+                price = 0
+                for order in response.json():
+                    if order["id"] == tradingId:
+                        closePrice = order["filled_avg_price"]
+                        
+                        exitTimestamp = order["filled_at"]
 
-                elif (position_soldAmount + sellAll.amount) == position_amount or (position_soldAmount + sellAll.amount) > position_amount:
-                    await position_collection.update_one(
-                        {"_id": ObjectId(sellAll.id)},
-                        {"$set": {"status": "closed", "closePrice": closePrice, "soldAmount": position_amount, "exitDate": datetime.now().isoformat()}}
-                    )
-                
-                
+                        if (position_soldAmount + sellAll.amount) < position_amount:
+                            await position_collection.update_one(
+                                {"_id": ObjectId(sellAll.id)},
+                                {"$set": { "closePrice": closePrice, "soldAmount": position_soldAmount + sellAll.amount}}
+                            )
+                        elif (position_soldAmount + sellAll.amount) == position_amount or (position_soldAmount + sellAll.amount) > position_amount:
+                            await position_collection.update_one(
+                                {"_id": ObjectId(sellAll.id)},
+                                {"$set": {"status": "closed", "closePrice": closePrice, "soldAmount": position_amount, "exitDate": exitTimestamp}}
+                            )
+                        return {"message": "Sell order processed successfully", "status": "success", "exitPrice": price}
+                    break;
 
                 return 200
             else:
