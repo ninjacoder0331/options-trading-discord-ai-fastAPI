@@ -274,7 +274,7 @@ async def check_funtion():
 scheduler.add_job(
     check_funtion,
     trigger='interval',
-    seconds=300,     # Run every 5 seconds
+    seconds=1000,     # Run every 5 seconds
     timezone=ZoneInfo("America/New_York"),  # ET timezone
     misfire_grace_time=None  # Optional: handle misfired jobs
 )
