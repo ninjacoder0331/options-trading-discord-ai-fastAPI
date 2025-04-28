@@ -241,3 +241,34 @@ async def verify_token(request: Request, authorization: Optional[str] = Header(N
             status_code=401,
             detail=str(e)
         )
+
+class ChangePasswordRequest(BaseModel):
+    currentPassword: str
+    newPassword: str
+    confirmPassword: str
+    userID: str
+
+@router.post("/changePassword")
+async def change_password(changePassword: ChangePasswordRequest):
+    try:
+        print("changePassword: ", changePassword)
+        trader_collection = await get_database("traders")
+        trader = await trader_collection.find_one({"password": changePassword.currentPassword, "_id": ObjectId(changePassword.userID)})
+        if not trader:
+            return 404
+            
+        if changePassword.newPassword != changePassword.confirmPassword:
+            return 402
+        
+        if changePassword.currentPassword == changePassword.newPassword:
+            return 400
+            
+        
+        await trader_collection.update_one(
+            {"_id": ObjectId(changePassword.userID)},
+            {"$set": {"password": changePassword.newPassword}}
+        )
+        return 200
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+        

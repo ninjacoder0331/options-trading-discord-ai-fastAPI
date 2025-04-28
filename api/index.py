@@ -145,7 +145,6 @@ async def check_stoploss_profit(position_id, option_symbol, entry_price, user_id
                     if open_position:
                         open_position["status"] = "closed"
                         await position_collection.update_one({"_id": ObjectId(open_position["_id"])}, {"$set": {"status": "closed"}})
-
                         await auto_sell_options(option_symbol , total_amount , sold_amount , position_id , api_key, api_secret)
                 except Exception as e:
                     print(f"Error in profit check: {e}")
@@ -164,23 +163,21 @@ async def check_market_time():
         current_time = datetime.now(ZoneInfo("America/New_York"))
 
     print("current_time: ", current_time)
-    
+
     # Check if it's a weekday (0 = Monday, 6 = Sunday)
     if current_time.weekday() >= 5:  # Saturday or Sunday
         return False
-    
+
     # Create time objects for market open and close
     market_open = current_time.replace(hour=9, minute=30, second=0, microsecond=0)
     market_close = current_time.replace(hour=16, minute=0, second=0, microsecond=0)
-    
+
     # Check if current time is within market hours
     is_market_open = market_open <= current_time <= market_close
     return is_market_open
 
 async def auto_sell_options(option_symbol , total_amount , sold_amount , position_id , api_key, secret_key):
     try:
-        # api_key = os.getenv("ALPACA_API_KEY")
-        # api_secret = os.getenv("ALPACA_SECRET_KEY")
         api_key = api_key
         api_secret = secret_key
         headers = {
