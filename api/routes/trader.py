@@ -236,7 +236,7 @@ async def add_position(position: Position):
                     print("buy order is excuted" , entry_price)
                     # print("history data" , history_data)
                     position_dict = {}
-                    position_dict["symbol"] = position.orderSymbol
+                    position_dict["symbol"] = position.symbol
                     position_dict["orderSymbol"] = position.orderSymbol
                     position_dict["quantity"] = buy_quantity
                     position_dict["analyst"] = position.analyst

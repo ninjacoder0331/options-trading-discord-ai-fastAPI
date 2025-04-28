@@ -36,11 +36,12 @@ async def update_analyst(analyst: Analyst):
     try:
         print("analyst", analyst)
         analyst_collection = await get_database("analyst")
+        startDate = datetime.now()
         if not analyst.currentId == "":
-            await analyst_collection.update_one({"_id": ObjectId(analyst.currentId)}, {"$set": {"name": analyst.name, "type": analyst.type}})
+            await analyst_collection.update_one({"_id": ObjectId(analyst.currentId)}, {"$set": {"name": analyst.name, "type": analyst.type, "startDate": startDate}})
             return {"message": "Analyst updated successfully"}
         else:
-            await analyst_collection.insert_one({"name": analyst.name, "type": analyst.type , "status": "start"})
+            await analyst_collection.insert_one({"name": analyst.name, "type": analyst.type , "status": "start", "startDate": startDate})
             return {"message": "Analyst created successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
