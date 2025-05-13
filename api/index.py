@@ -69,7 +69,6 @@ async def get_items():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
 # Example endpoint to create an item
 @app.post("/items")
 async def create_item(item: dict):

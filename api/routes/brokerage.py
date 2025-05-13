@@ -26,6 +26,26 @@ async def get_brokerages():
         print(f"Error fetching brokerages: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to fetch brokerages")
 
+class KeyData(BaseModel):
+    userId : str
+
+@router.post("/getkeyData")
+async def get_key_data(request: KeyData):
+    try:
+        traders = await get_database("traders")
+        key_data = await traders.find_one({"traderId": request.userId})
+        print(key_data)
+        if key_data:
+            api_key = key_data["API_KEY"]
+            api_secret = key_data["SECRET_KEY"]
+            liveMode = key_data["liveTrading"]
+            print(api_key, api_secret)
+            return {"apiKey": api_key, "apiSecret": api_secret ,"liveMode": liveMode}
+        else:
+            raise HTTPException(status_code=404, detail="Key data not found")
+    except Exception as e:
+        print(f"Error fetching key data: {str(e)}")
+
 @router.post("/create", response_model=dict)
 async def create_brokerage(brokerage: BrokerageCreate):
     try:

@@ -11,10 +11,40 @@ from dotenv import load_dotenv
 from ..routes.utils import parse_option_date, check_option_expiry
 import time
 import asyncio
+import ntplib
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 load_dotenv()
 
 router = APIRouter()
+
+async def check_market_time():
+    try:
+        # Get time from NTP server
+        ntp_client = ntplib.NTPClient()
+        response = ntp_client.request('pool.ntp.org')
+        # Convert NTP time to datetime and set timezone to ET
+        current_time = datetime.fromtimestamp(response.tx_time, ZoneInfo("America/New_York"))
+    except Exception as e:
+        print(f"Error getting NTP time: {e}")
+        # Fallback to local time if NTP fails
+        current_time = datetime.now(ZoneInfo("America/New_York"))
+
+    print("current_time: ", current_time)
+
+    # Check if it's a weekday (0 = Monday, 6 = Sunday)
+    if current_time.weekday() >= 5:  # Saturday or Sunday
+        return False
+
+    # Create time objects for market open and close
+    market_open = current_time.replace(hour=9, minute=30, second=0, microsecond=0)
+    market_close = current_time.replace(hour=16, minute=0, second=0, microsecond=0)
+
+    # Check if current time is within market hours
+    is_market_open = market_open <= current_time <= market_close
+    return is_market_open
+
 
 @router.get("/getTraders")
 async def get_traders():
@@ -124,6 +154,9 @@ async def get_trader_analysts(trader: Get_trader_analyst_class):
 @router.post("/addPosition")
 async def add_position(position: Position):
     try:
+        # is_market_open = await check_market_time()
+        # if not is_market_open:
+        #     return 422
         # print("position: ", position)
         trader_collection = await get_database("traders")
         trader = await trader_collection.find_one({"_id": ObjectId(position.userID)})
@@ -145,6 +178,7 @@ async def add_position(position: Position):
                 amount = int(trader_amount / (position.entryPrice * 100))
                 # print("amount: ", amount)
         else:
+            return 404
             raise HTTPException(status_code=404, detail="User not found")
         position.amount = amount
         position_collection = await get_database("positions")
@@ -163,8 +197,6 @@ async def add_position(position: Position):
 
         print("payload: ", payload)
 
-        # alpaca_api_key = os.getenv("ALPACA_API_KEY")
-        # alpaca_secret_key = os.getenv("ALPACA_SECRET_KEY")
         alpaca_api_key = trader["API_KEY"]
         alpaca_secret_key = trader["SECRET_KEY"]
         if(alpaca_api_key == "" or alpaca_secret_key == ""):
@@ -206,12 +238,13 @@ async def add_position(position: Position):
                     times -= 1
                     time.sleep(5)
                     print("times: ", times)
-                # Using time.sleep() instead of asyncio.sleep()
         position.entryPrice = bidPrice
-        # print("payload: ", payload)
-        print("url: ", url)
-        print("headers: ", headers)
         response = requests.post(url, json=payload, headers=headers)
+        print("response: ", response.status_code)
+        if response.status_code == 422:
+            return 422
+        if response.status_code == 403:
+            return 455
         tradingId = response.json()["id"]
         # print("response: ", response.status_code)
 
@@ -361,16 +394,16 @@ async def get_position_status_by_traderId(position, traderId):
                             "APCA-API-SECRET-KEY": alpaca_secret_key
                         }
                 
-                # print("headers: ", headers)
-                # print("position['orderSymbol']: ", position['orderSymbol'])
+                liveMode = trader["liveTrading"]
 
-                # url = f"https://data.alpaca.markets/v1beta1/options/quotes/latest?symbols={position['orderSymbol']}&feed=indicative"
-                url = f"https://data.alpaca.markets/v1beta1/options/quotes/latest?symbols={position['orderSymbol']}"
+                if liveMode == True:
+                    url = "https://api.alpaca.markets/v2/positions/" + position['orderSymbol']
+                else:
+                    url = "https://paper-api.alpaca.markets/v2/positions/" + position['orderSymbol']
+
                 response = requests.get(url, headers=headers)
-                # print("response: ", response.text)
-                # if position == "open":
-                result = get_bid_price(response.text, position['orderSymbol'])
-                position['currentPrice'] = result
+                
+                position['currentPrice'] = response.json()['current_price']
         return {
             "positions": positions
         }
@@ -432,7 +465,6 @@ async def get_position_status(position):
         print("positions: ", positions)
         trader_collection = await get_database("traders")
 
-
         if not positions:
             print("No open positions found")
             positions = []
@@ -465,22 +497,16 @@ async def get_position_status(position):
                             "APCA-API-SECRET-KEY": alpaca_secret_key
                         }
                 
-                # print("headers: ", headers)
-                # print("position['orderSymbol']: ", position['orderSymbol'])
+                liveMode = trader["liveTrading"]
 
-                # url = f"https://data.alpaca.markets/v1beta1/options/quotes/latest?symbols={position['orderSymbol']}&feed=indicative"
-                url = f"https://data.alpaca.markets/v1beta1/options/quotes/latest?symbols={position['orderSymbol']}"
+                if liveMode == True:
+                    url = "https://api.alpaca.markets/v2/positions/" + position['orderSymbol']
+                else:
+                    url = "https://paper-api.alpaca.markets/v2/positions/" + position['orderSymbol']
+
                 response = requests.get(url, headers=headers)
-                print("response bid price: ", response.text)
                 
-                # if position == "open":
-                result = get_bid_price(response.text, position['orderSymbol'])
-                position['currentPrice'] = result
-                # else:
-                #     result = get_ask_price(response.text, position['orderSymbol'])
-                
-                # print(position['currentPrice'])
-                # print("response: ", response.text).
+                position['currentPrice'] = response.json()['current_price']
         
         # Return combined data
         return {
