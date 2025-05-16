@@ -26,6 +26,21 @@ async def get_brokerages():
         print(f"Error fetching brokerages: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to fetch brokerages")
 
+class BrokerageTraderCreate(BaseModel):
+    brokerageName: str
+    API_KEY: str
+    SECRET_KEY: str
+    liveTrading: bool
+
+@router.post("/createBrokerageTrader")
+async def create_brokerage_trader(request: BrokerageTraderCreate):
+    try:
+        brokerage_collection = await get_database("brokerageCollection")
+        result = await brokerage_collection.insert_one(request.model_dump())
+        return {"id": str(result.inserted_id)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 class KeyData(BaseModel):
     userId : str
 
@@ -33,13 +48,14 @@ class KeyData(BaseModel):
 async def get_key_data(request: KeyData):
     try:
         traders = await get_database("traders")
-        key_data = await traders.find_one({"traderId": request.userId})
-        print(key_data)
-        if key_data:
-            api_key = key_data["API_KEY"]
-            api_secret = key_data["SECRET_KEY"]
-            liveMode = key_data["liveTrading"]
-            print(api_key, api_secret)
+        brokerage_collection = await get_database("brokerageCollection")
+        trader = await traders.find_one({"_id": ObjectId(request.userId)})
+        brokerage = await brokerage_collection.find_one({"_id": ObjectId(trader["brokerageName"])})
+
+        if brokerage:
+            api_key = brokerage["API_KEY"]
+            api_secret = brokerage["SECRET_KEY"]
+            liveMode = brokerage["liveTrading"]
             return {"apiKey": api_key, "apiSecret": api_secret ,"liveMode": liveMode}
         else:
             raise HTTPException(status_code=404, detail="Key data not found")
