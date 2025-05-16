@@ -89,10 +89,11 @@ async def check_stoploss_profit(position_id, option_symbol, entry_price, user_id
     trader_collection = await get_database("traders")
     trader = await trader_collection.find_one({"_id": ObjectId(user_id)})
 
-    # api_key = trader.get("API_KEY")
-    # secret_key = trader.get("SECRET_KEY")
-    api_key = trader["API_KEY"]
-    api_secret = trader["SECRET_KEY"]
+    brokerage_collection = await get_database("brokerageCollection")
+    brokerage = await brokerage_collection.find_one({"_id": ObjectId(trader["brokerageName"])})
+
+    api_key = brokerage["API_KEY"]
+    api_secret = brokerage["SECRET_KEY"]
 
     headers = {
         "APCA-API-KEY-ID": api_key,
@@ -100,6 +101,7 @@ async def check_stoploss_profit(position_id, option_symbol, entry_price, user_id
         "Content-Type": "application/json",
         "Accept": "application/json"
     }
+    
     url = f"https://data.alpaca.markets/v1beta1/options/snapshots?symbols={option_symbol}&feed=indicative&limit=100"
 
     response = requests.get(url, headers=headers)
@@ -228,9 +230,12 @@ async def check_date_expired(option_symbol , total_amount , sold_amount , positi
             print(f"Option {option_symbol} is 40 minutes before market close on expiration date")
             trader_collection = await get_database("traders")
             trader = await trader_collection.find_one({"_id": ObjectId(user_id)})
-            api_key = trader.get("API_KEY")
-            secret_key = trader.get("SECRET_KEY")
-            await auto_sell_options(option_symbol , total_amount , sold_amount , position_id , api_key, secret_key)
+            brokerage_collection = await get_database("brokerageCollection")
+            brokerage = await brokerage_collection.find_one({"_id": ObjectId(trader["brokerageName"])})
+
+            api_key = brokerage["API_KEY"]
+            api_secret = brokerage["SECRET_KEY"]
+            await auto_sell_options(option_symbol , total_amount , sold_amount , position_id , api_key, api_secret)
             return True
         else:
             print(f"Current time: {current_time.strftime('%Y-%m-%d %H:%M:%S')}")

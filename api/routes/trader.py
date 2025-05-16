@@ -154,14 +154,13 @@ async def get_trader_analysts(trader: Get_trader_analyst_class):
 @router.post("/addPosition")
 async def add_position(position: Position):
     try:
-        # is_market_open = await check_market_time()
-        # if not is_market_open:
-        #     return 422
-        # print("position: ", position)
         trader_collection = await get_database("traders")
         trader = await trader_collection.find_one({"_id": ObjectId(position.userID)})
-        check_live_trading = trader["liveTrading"]
-        print("check_live_trading: ", check_live_trading)
+        brokerage_collection = await get_database("brokerageCollection")
+        brokerage = await brokerage_collection.find_one({"_id": ObjectId(trader["brokerageName"])})
+        alpaca_api_key = brokerage["API_KEY"]
+        alpaca_secret_key = brokerage["SECRET_KEY"]
+        check_live_trading = brokerage["liveTrading"]
         paper_url = os.getenv("PAPER_URL")
         trader_amount = 0
         amount = 0
@@ -194,11 +193,6 @@ async def add_position(position: Position):
             "qty": position.amount,
             "side": "buy",
         }
-
-        print("payload: ", payload)
-
-        alpaca_api_key = trader["API_KEY"]
-        alpaca_secret_key = trader["SECRET_KEY"]
         if(alpaca_api_key == "" or alpaca_secret_key == ""):
             return 429
         headers = {
@@ -212,9 +206,7 @@ async def add_position(position: Position):
 
         response = requests.get(check_url, headers=headers)
         response_json = response.json()
-        # print(response_json)
         bidPrice = response_json["snapshots"][position.orderSymbol]["latestQuote"]["ap"]
-
         askPrice = response_json["snapshots"][position.orderSymbol]["latestQuote"]["bp"]
 
         if abs(bidPrice - askPrice) < position.entryPrice * 0.04:
@@ -364,8 +356,14 @@ async def get_position_status_by_traderId(position, traderId):
     try:
         position_collection = await get_database("positions")
         trader_collection = await get_database("traders")
+        brokerage_collection = await get_database("brokerageCollection")
         trader = await trader_collection.find_one({"_id": ObjectId(traderId)})
-        check_live_trading = trader["liveTrading"]
+        brokerage = await brokerage_collection.find_one({"_id": ObjectId(trader["brokerageName"])})
+
+        alpaca_api_key = brokerage["API_KEY"]
+        alpaca_secret_key = brokerage["SECRET_KEY"]
+        check_live_trading = brokerage["liveTrading"]
+
         positions = await position_collection.find({"status": position, "userID": traderId}).to_list(1000)
         if not positions:
             # print("No open positions found")
@@ -385,8 +383,6 @@ async def get_position_status_by_traderId(position, traderId):
                 position["timeDifference"] = difference
             if position['orderSymbol'] != '' and position['status'] == "open":
 
-                alpaca_api_key = trader["API_KEY"]
-                alpaca_secret_key = trader["SECRET_KEY"]
                 headers = {
                             "accept": "application/json",
                             "content-type": "application/json",
@@ -394,9 +390,8 @@ async def get_position_status_by_traderId(position, traderId):
                             "APCA-API-SECRET-KEY": alpaca_secret_key
                         }
                 
-                liveMode = trader["liveTrading"]
 
-                if liveMode == True:
+                if check_live_trading == True:
                     url = "https://api.alpaca.markets/v2/positions/" + position['orderSymbol']
                 else:
                     url = "https://paper-api.alpaca.markets/v2/positions/" + position['orderSymbol']
@@ -471,8 +466,12 @@ async def get_position_status(position):
         for position in positions:
             position["_id"] = str(position["_id"])
             trader = await trader_collection.find_one({"_id": ObjectId(position.get("userID"))})
-            alpaca_api_key = trader["API_KEY"]
-            alpaca_secret_key = trader["SECRET_KEY"]
+            brokerage_collection = await get_database("brokerageCollection")
+            brokerage = await brokerage_collection.find_one({"_id": ObjectId(trader["brokerageName"])})
+
+            alpaca_api_key = brokerage["API_KEY"]
+            alpaca_secret_key = brokerage["SECRET_KEY"]
+            check_live_trading = brokerage["liveTrading"]
             
             # Convert datetime to string if it exists
             if "created_at" in position:
@@ -487,9 +486,6 @@ async def get_position_status(position):
                     )
                     break
 
-
-                alpaca_api_key = trader["API_KEY"]
-                alpaca_secret_key = trader["SECRET_KEY"]
                 headers = {
                             "accept": "application/json",
                             "content-type": "application/json",
@@ -497,9 +493,7 @@ async def get_position_status(position):
                             "APCA-API-SECRET-KEY": alpaca_secret_key
                         }
                 
-                liveMode = trader["liveTrading"]
-
-                if liveMode == True:
+                if check_live_trading == True:
                     url = "https://api.alpaca.markets/v2/positions/" + position['orderSymbol']
                 else:
                     url = "https://paper-api.alpaca.markets/v2/positions/" + position['orderSymbol']
@@ -567,10 +561,13 @@ async def sell_all(sellAll: SellAll):
             userID = position.get("userID")
 
             trader_collection = await get_database("traders")
+            brokerage_collection = await get_database("brokerageCollection")
             trader = await trader_collection.find_one({"_id": ObjectId(userID)})
-            alpaca_api_key = trader.get("API_KEY")
-            alpaca_secret_key = trader.get("SECRET_KEY")
-            check_live_trading = trader.get("liveTrading")
+            brokerage = await brokerage_collection.find_one({"_id": ObjectId(trader["brokerageName"])})
+
+            alpaca_api_key = brokerage["API_KEY"]
+            alpaca_secret_key = brokerage["SECRET_KEY"]
+            check_live_trading = brokerage["liveTrading"]
 
             paper_url = os.getenv("PAPER_URL")
             
@@ -581,7 +578,6 @@ async def sell_all(sellAll: SellAll):
                 "qty":  sellAll.amount,
                 "side": "sell",
             }
-            # print("payload" , payload)
             headers = {
                         "accept": "application/json",
                         "content-type": "application/json",
@@ -598,15 +594,13 @@ async def sell_all(sellAll: SellAll):
             tradingId = response.json()["id"]
 
             if(response.status_code == 200):
-                await asyncio.sleep(3)
+                await asyncio.sleep(2)
                 if check_live_trading == True:
                     url = "https://api.alpaca.markets/v2/orders?status=all&symbols="+orderSymbol
-                else:   
+                else:
                     url = "https://paper-api.alpaca.markets/v2/orders?status=all&symbols="+orderSymbol
-                # print("orderSymbol: ", orderSymbol)
                 response = requests.get(url, headers=headers)
-                # print("response: ", response.text)
-                
+
                 price = 0
                 for order in response.json():
                     if order["id"] == tradingId:
