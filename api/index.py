@@ -22,13 +22,6 @@ import requests
 import ntplib
 load_dotenv()
 
-
-# if platform.system()=='Windows':
-#     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-# else:
-#     asyncio.set_event_loop_policy(asyncio.DefaultEventLoopPolicy())
-# Load environment variables
-
 app = FastAPI()
 
 # Add CORS middleware
@@ -39,10 +32,6 @@ app.add_middleware(
     allow_methods=["*"],  # Allows all methods
     allow_headers=["*"],  # Allows all headers
 )
-
-# MongoDB connection
-
-# db = client.optionsTrading
 
 
 # Include routers
@@ -84,8 +73,7 @@ scheduler = AsyncIOScheduler()
 async def check_open_positions():
     return "Checking open positions"
 
-async def check_stoploss_profit(position_id, option_symbol, entry_price, user_id, total_amount, sold_amount):
-    
+async def check_stoploss_profit(position_id, option_symbol, entry_price, user_id, total_amount, sold_amount, asset_id):
     trader_collection = await get_database("traders")
     trader = await trader_collection.find_one({"_id": ObjectId(user_id)})
 
@@ -101,52 +89,44 @@ async def check_stoploss_profit(position_id, option_symbol, entry_price, user_id
         "Content-Type": "application/json",
         "Accept": "application/json"
     }
-    
-    url = f"https://data.alpaca.markets/v1beta1/options/snapshots?symbols={option_symbol}&feed=indicative&limit=100"
+    print("asset_id: ", asset_id)
+    url = f"https://paper-api.alpaca.markets/v2/positions/{asset_id}"
 
     response = requests.get(url, headers=headers)
     response_json = response.json()
-    # print(response_json)
-    close_price = response_json["snapshots"][option_symbol]["latestQuote"]["ap"]
-    # print("close_price: ", close_price)
+    current_price = float(response_json["current_price"])
+    entry_price = float(response_json["avg_entry_price"])
 
     trader_collection = await get_database("traders")
     trader = await trader_collection.find_one({"_id": ObjectId(user_id)})
 
     if trader:
-        stoploss = trader.get("stopLoss")
-        profit = trader.get("profitTaking")
+        stoploss = float(trader.get("stopLoss", 0))
+        profit = float(trader.get("profitTaking", 0))
 
         if stoploss != 0:
             stoploss_condition_price = entry_price * (1 - stoploss / 100)
+            print("stoploss_condition_price: ", stoploss_condition_price)
 
-            if stoploss_condition_price > close_price:
-                try :
-
+            if stoploss_condition_price >= current_price:
+                try:
                     position_collection = await get_database("positions")
-                    open_position = await position_collection.find_one({"orderSymbol": option_symbol})
-
+                    open_position = await position_collection.find_one({"asset_id": asset_id})
                     if open_position:
-                        open_position["status"] = "closed"
-                        await position_collection.update_one({"_id": ObjectId(open_position["_id"])}, {"$set": {"status": "closed"}})
-                        await auto_sell_options(option_symbol , total_amount , sold_amount , position_id , api_key, api_secret)
-
-                    
+                        await auto_sell_options(option_symbol, total_amount, sold_amount, position_id, api_key, api_secret)
                 except Exception as e:
                     print(f"Error in stoploss check: {e}")
             
         if profit != 0:
             profit_condition_price = entry_price * (1 + profit / 100)
-            
-            if profit_condition_price < close_price:
+            print("profit_condition_price: ", profit_condition_price)
+            if profit_condition_price <= current_price:
                 try:
                     position_collection = await get_database("positions")
-                    open_position = await position_collection.find_one({"orderSymbol": option_symbol})
-
+                    open_position = await position_collection.find_one({"asset_id": asset_id})
+                    print("open_position: ", open_position)
                     if open_position:
-                        open_position["status"] = "closed"
-                        await position_collection.update_one({"_id": ObjectId(open_position["_id"])}, {"$set": {"status": "closed"}})
-                        await auto_sell_options(option_symbol , total_amount , sold_amount , position_id , api_key, api_secret)
+                        await auto_sell_options(option_symbol, total_amount, sold_amount, position_id, api_key, api_secret)
                 except Exception as e:
                     print(f"Error in profit check: {e}")
     return "Checking stoploss and profit"
@@ -179,11 +159,9 @@ async def check_market_time():
 
 async def auto_sell_options(option_symbol , total_amount , sold_amount , position_id , api_key, secret_key):
     try:
-        api_key = api_key
-        api_secret = secret_key
         headers = {
             "APCA-API-KEY-ID": api_key,
-            "APCA-API-SECRET-KEY": api_secret,
+            "APCA-API-SECRET-KEY": secret_key,
             "Content-Type": "application/json",
             "Accept": "application/json"
         }
@@ -209,7 +187,7 @@ async def auto_sell_options(option_symbol , total_amount , sold_amount , positio
 
 async def check_date_expired(option_symbol , total_amount , sold_amount , position_id , user_id):
     try:
-        print("options symbol" , option_symbol)
+        # print("options symbol" , option_symbol)
         month, date = parse_option_date(option_symbol)
         try:
             # Get time from NTP server
@@ -251,33 +229,33 @@ async def check_funtion():
         # First check if market is open
         is_market_open = await check_market_time()
         if not is_market_open:
-            print("Market is closed. Skipping position checks.")
-            return "Market is closed"
+            print(f"Market is closed.")
+            return "Market is closed."
 
         position_collection = await get_database("positions")
         open_positions = await position_collection.find({"status": "open"}).to_list(length=1000)    
 
         if open_positions:
+            print(f"Found {len(open_positions)} open positions")
             for position in open_positions:
-                await check_date_expired(position["orderSymbol"] , position["amount"] , position["soldAmount"] , position["_id"] , position["userID"])
-                left_amount = position["amount"] - position["soldAmount"]
-                await check_stoploss_profit(position["_id"] , position["orderSymbol"] , position["entryPrice"] , position["userID"] , position["amount"] , position["soldAmount"])
-            
+                await check_stoploss_profit(position["_id"] , position["orderSymbol"] , position["entryPrice"] , position["userID"] , position["amount"] , position["soldAmount"], position["asset_id"])
         else:
-            print("No open positions")
+            print(f"No open positions")
 
         return "Function executed successfully"
     except Exception as e:
         print(f"Error in function: {str(e)}")
         return "Error occurred"
 
-# Schedule job to run every 5 seconds
+# Schedule job to run every 10 seconds with proper cooldown
 scheduler.add_job(
     check_funtion,
     trigger='interval',
-    seconds=1000,     # Run every 5 seconds
+    seconds=60,     # Run every 10 seconds
     timezone=ZoneInfo("America/New_York"),  # ET timezone
-    misfire_grace_time=None  # Optional: handle misfired jobs
+    misfire_grace_time=30,  # Allow jobs to be 30 seconds late
+    max_instances=1,  # Only allow one instance to run at a time
+    coalesce=True  # Combine multiple pending jobs into one
 )
 
 # Start the scheduler when the application starts
