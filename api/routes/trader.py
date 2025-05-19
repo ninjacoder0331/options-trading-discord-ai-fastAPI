@@ -255,6 +255,7 @@ async def add_position(position: Position):
                     price = order["filled_avg_price"]
                     buy_quantity = order["filled_qty"]
                     entrytimestamp = order["filled_at"]
+                    asset_id = order["asset_id"]
                     entry_price = price  # This will now update the global variable
                     # print("*********************" , price ," entrytimestamp " , entrytimestamp)
                     
@@ -277,6 +278,7 @@ async def add_position(position: Position):
                     position_dict["exitDate"] = position.exitDate
                     position_dict["strikePrice"] = position.strikePrice
                     position_dict["tradingId"] = tradingId
+                    position_dict["asset_id"] = asset_id
                     position_dict["status"] = "open"
                     position_dict["closePrice"] = 0
                     position_dict["entryDate"] = entrytimestamp
