@@ -193,6 +193,9 @@ async def add_position(position: Position):
             "qty": position.amount,
             "side": "buy",
         }
+        print("alpaca_api_key: ", alpaca_api_key)
+        print("alpaca_secret_key: ", alpaca_secret_key)
+        print("payload: ", payload)
         if(alpaca_api_key == "" or alpaca_secret_key == ""):
             return 429
         headers = {
