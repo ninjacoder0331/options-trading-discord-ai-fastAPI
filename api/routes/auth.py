@@ -81,13 +81,25 @@ class BrokerageTrader(BaseModel):
 @router.post("/updateBrokerageTrader")
 async def update_brokerage_trader(trader: BrokerageTrader):
     try:
-        trader_collection = await get_database("traders")
+        trader_collection = await get_database("brokerageCollection")
         print("trader: ", trader)
         result = await trader_collection.update_one(
             {"_id": ObjectId(trader.traderId)},
             {"$set": {"brokerageName": trader.brokerageName, "API_KEY": trader.API_KEY, "SECRET_KEY": trader.SECRET_KEY, "liveTrading": trader.liveTrading}}
         )
         return {"message": "Brokerage trader updated successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+class DeleteBrokerage(BaseModel):
+    traderId: str
+
+@router.post("/deleteBrokerage")
+async def delete_brokerage(trader: DeleteBrokerage):
+    try:
+        trader_collection = await get_database("brokerageCollection")
+        result = await trader_collection.delete_one({"_id": ObjectId(trader.traderId)})
+        return {"message": "Brokerage deleted successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
